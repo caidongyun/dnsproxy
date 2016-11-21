@@ -19,6 +19,9 @@
 
 #include "Configuration.h"
 
+//Global variables
+size_t HopLimitIndex[NETWORK_LAYER_PARTNUM] {0, 0};
+
 //Read texts
 bool ReadText(
 	const FILE * const FileHandle, 

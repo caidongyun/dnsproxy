@@ -58,7 +58,7 @@ extern std::vector<FILE_DATA> FileList_Config, FileList_IPFilter, FileList_Hosts
 extern std::vector<DIFFERNET_FILE_SET_IPFILTER> *IPFilterFileSetUsing, *IPFilterFileSetModificating;
 extern std::vector<DIFFERNET_FILE_SET_HOSTS> *HostsFileSetUsing, *HostsFileSetModificating;
 extern std::mutex IPFilterFileLock, HostsFileLock;
-size_t HopLimitIndex[]{0, 0};
+extern size_t HopLimitIndex[];
 
 //Functions in Configuration.cpp
 bool ReadText(
