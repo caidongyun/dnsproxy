@@ -17,7 +17,7 @@
 // Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 
 
-#ifndef PCAP_DNSPROXY_SERVIVE_H
+#ifndef PCAP_DNSPROXY_SERVICE_H
 #define PCAP_DNSPROXY_SERVICE_H
 
 #include "Base.h"
