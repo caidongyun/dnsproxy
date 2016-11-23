@@ -1238,7 +1238,7 @@ ssize_t SocketSelectingOnce(
 	ssize_t SelectResult = 0;
 	size_t LastReceiveIndex = 0;
 	SYSTEM_SOCKET MaxSocket = 0;
-	auto IsAllSocketClosed = false;
+	auto IsAllSocketShutdown = false;
 	if (OriginalRecv == nullptr && RequestType != REQUEST_PROCESS_DNSCURVE_MAIN)
 	{
 		std::shared_ptr<uint8_t> RecvBufferSwap(new uint8_t[PACKET_MAXSIZE]());
@@ -1310,12 +1310,12 @@ ssize_t SocketSelectingOnce(
 				if (RequestType == REQUEST_PROCESS_UDP_NO_MARKING)
 					return EXIT_SUCCESS;
 				else 
-					IsAllSocketClosed = true;
+					IsAllSocketShutdown = true;
 			}
 		}
 
 	//Buffer list check(Part 1)
-		if (OriginalRecv != nullptr && (IsAllSocketClosed || Parameter.ReceiveWaiting == 0 || SocketDataList.size() == 1U))
+		if (OriginalRecv != nullptr && (IsAllSocketShutdown || Parameter.ReceiveWaiting == 0 || SocketDataList.size() == 1U))
 		{
 		//Scan all result.
 		#if defined(ENABLE_LIBSODIUM)
@@ -1328,7 +1328,7 @@ ssize_t SocketSelectingOnce(
 		//Get result or all socket cloesed
 			if (RecvLen >= (ssize_t)DNS_PACKET_MINSIZE)
 				return RecvLen;
-			else if (IsAllSocketClosed)
+			else if (IsAllSocketShutdown)
 				return EXIT_FAILURE;
 		}
 

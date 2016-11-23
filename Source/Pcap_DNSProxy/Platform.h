@@ -580,12 +580,12 @@
 
 		//Conditional define for TCP_FASTOPEN
 			#ifndef TCP_FASTOPEN
-				#define TCP_FASTOPEN   23
+				#define TCP_FASTOPEN       23
 			#endif
 
 		//Conditional define for MSG_FASTOPEN
 			#ifndef MSG_FASTOPEN
-				#define MSG_FASTOPEN   0x20000000
+				#define MSG_FASTOPEN       0x20000000
 			#endif
 		#endif
 

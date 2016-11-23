@@ -20,7 +20,7 @@
 #include "Configuration.h"
 
 //Global variables
-extern size_t HopLimitIndex[NETWORK_LAYER_PARTNUM];
+extern size_t HopLimitIndex[];
 
 //Check parameter list and set default values
 bool ParameterCheckAndSetting(
@@ -457,7 +457,7 @@ bool ParameterCheckAndSetting(
 	//Default Local DNS server name
 		if (Parameter.LocalFQDN_Length <= 0)
 		{
-			Parameter.LocalFQDN_Length = CharToDNSQuery((const uint8_t *)DEFAULT_LOCAL_SERVERNAME, Parameter.LocalFQDN_Response);
+			Parameter.LocalFQDN_Length = StringToPacketQuery((const uint8_t *)DEFAULT_LOCAL_SERVERNAME, Parameter.LocalFQDN_Response);
 			*Parameter.LocalFQDN_String = DEFAULT_LOCAL_SERVERNAME;
 		}
 
@@ -625,7 +625,7 @@ bool ParameterCheckAndSetting(
 			//Mark TLS Server Name Indication/SNI.
 				if (Parameter.sHTTP_CONNECT_TLS_SNI != nullptr && !Parameter.sHTTP_CONNECT_TLS_SNI->empty())
 				{
-					if (!MBSToWCSString((const uint8_t *)Parameter.sHTTP_CONNECT_TLS_SNI->c_str(), Parameter.sHTTP_CONNECT_TLS_SNI->length(), *Parameter.HTTP_CONNECT_TLS_SNI))
+					if (!MBS_To_WCS_String((const uint8_t *)Parameter.sHTTP_CONNECT_TLS_SNI->c_str(), Parameter.sHTTP_CONNECT_TLS_SNI->length(), *Parameter.HTTP_CONNECT_TLS_SNI))
 					{
 						PrintError(LOG_LEVEL_2, LOG_ERROR_SYSTEM, L"Convert multiple byte or wide char string error", 0, nullptr, 0);
 						delete Parameter.HTTP_CONNECT_TLS_SNI;
@@ -2632,7 +2632,7 @@ bool ReadParameterData(
 				memcpy_s(LocalFQDN, DOMAIN_MAXSIZE, Data.c_str() + strlen("LocalMachineServerName="), Parameter.LocalFQDN_Length);
 				*Parameter.LocalFQDN_String = (const char *)LocalFQDN;
 				memset(Parameter.LocalFQDN_Response, 0, DOMAIN_MAXSIZE);
-				UnsignedResult = CharToDNSQuery(LocalFQDN, Parameter.LocalFQDN_Response);
+				UnsignedResult = StringToPacketQuery(LocalFQDN, Parameter.LocalFQDN_Response);
 				if (UnsignedResult > DOMAIN_MINSIZE)
 				{
 					Parameter.LocalFQDN_Length = UnsignedResult;
@@ -3166,7 +3166,7 @@ bool ReadPathAndFileName(
 		#endif
 
 		//Convert to wide string.
-			if (!MBSToWCSString((const uint8_t *)StringIter.c_str(), StringIter.length(), wNameString))
+			if (!MBS_To_WCS_String((const uint8_t *)StringIter.c_str(), StringIter.length(), wNameString))
 			{
 				PrintError(LOG_LEVEL_1, LOG_ERROR_PARAMETER, L"Read file path error", 0, FileList_Config.at(FileIndex).FileName.c_str(), Line);
 				return false;
@@ -3220,7 +3220,7 @@ bool ReadPathAndFileName(
 		for (const auto &StringIter:InnerListData)
 		{
 		//Convert to wide string.
-			if (!MBSToWCSString((const uint8_t *)StringIter.c_str(), StringIter.length(), wNameString))
+			if (!MBS_To_WCS_String((const uint8_t *)StringIter.c_str(), StringIter.length(), wNameString))
 			{
 				PrintError(LOG_LEVEL_1, LOG_ERROR_PARAMETER, L"Read file path error", 0, FileList_Config.at(FileIndex).FileName.c_str(), Line);
 				return false;

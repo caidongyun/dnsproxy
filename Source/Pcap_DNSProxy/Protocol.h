@@ -39,14 +39,14 @@ bool CheckAddressRouting(
 bool OperationModeFilter(
 	const uint16_t Protocol, 
 	const void * const OriginalAddr);
-size_t CheckResponseCNAME(
+size_t CheckResponse_CNAME(
 	uint8_t * const Buffer, 
 	const size_t Length, 
 	const size_t CNAME_Index, 
 	const size_t CNAME_Length, 
 	const size_t BufferSize, 
 	size_t &RecordNum);
-bool CheckDNSSECRecords(
+bool Check_DNSSEC_Record(
 	const uint8_t * const Buffer, 
 	const size_t Length, 
 	const uint16_t Type, 

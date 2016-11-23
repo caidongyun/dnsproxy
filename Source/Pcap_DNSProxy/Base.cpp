@@ -46,7 +46,7 @@ bool CheckEmptyBuffer(
 }
 
 //Convert multiple bytes to wide char string
-bool MBSToWCSString(
+bool MBS_To_WCS_String(
 	const uint8_t * const Buffer, 
 	const size_t MaxLen, 
 	std::wstring &Target)
@@ -87,7 +87,7 @@ bool MBSToWCSString(
 }
 
 //Convert wide char string to multiple bytes
-bool WCSToMBSString(
+bool WCS_To_MBS_String(
 	const wchar_t * const Buffer, 
 	const size_t MaxLen, 
 	std::string &Target)
@@ -237,11 +237,7 @@ bool CompareStringReversed(
 	const std::string &RuleItem, 
 	const std::string &TestItem)
 {
-//Length check
-	if (RuleItem.empty() || TestItem.empty() || TestItem.length() < RuleItem.length())
-		return false;
-//Compare each other.
-	else if (memcmp(RuleItem.c_str(), TestItem.c_str(), RuleItem.length()) == 0)
+	if (!RuleItem.empty() && !TestItem.empty() && TestItem.length() >= RuleItem.length() && memcmp(RuleItem.c_str(), TestItem.c_str(), RuleItem.length()) == 0)
 		return true;
 
 	return false;

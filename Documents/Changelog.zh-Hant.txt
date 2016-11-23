@@ -1,6 +1,6 @@
-﻿Pcap_DNSProxy 0.4.7.7-0.4.8.0 更新日誌(2016-11-20)：
+﻿Pcap_DNSProxy 0.4.7.7-0.4.8.0 更新日誌(2016-11-23)：
 
-* 添加 Guard Macros [Syrone Wong]
+* 添加 Include Guard Macros 的支援 [Syrone Wong]
 * 添加 Large Buffer Size 參數，用於指定大型資料緩衝區的固定長度
 * 添加串列請求通訊模組，重寫部分網路請求協定
   * 重寫 SOCKS Proxy 以及 HTTP CONNECT Proxy 協定實現，解除傳輸資料量受一次性請求通訊模組固定緩衝區的長度限制
@@ -21,6 +21,7 @@
   * 添加 HTTP CONNECT TLS Version 參數，用於指定所使用的 TLS 版本
   * 添加 HTTP CONNECT TLS Validation 參數，用於選擇是否驗證 TLS 伺服器憑證鏈
   * 添加 HTTP CONNECT TLS Server Name Indication 參數，用於指定 TLS 握手時所使用的功能變數名稱
+* 添加 IPFilter 和 Hosts 檔臨時停止讀取標籤的區塊化支援
 * 設定檔版本要求升級到 0.45
   * Protocol 改名為 Output Protocol
   * IPv4 DNS Address 改名為 IPv4 Main DNS Address

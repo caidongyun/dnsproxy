@@ -1103,6 +1103,9 @@ typedef struct _icmpv6_hdr_
 #ifndef IPPORT_AODV
 	#define IPPORT_AODV                 654U
 #endif
+#ifndef IPPORT_DNS_TLS
+	#define IPPORT_DNS_TLS              853U
+#endif
 #ifndef IPPORT_FTPSDATA
 	#define IPPORT_FTPSDATA             989U
 #endif

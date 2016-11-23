@@ -160,8 +160,8 @@
 #define UINT8_MAX_STRING_LENGTH                       4U                          //Maximum number of 8 bits is 255, its length is 3.
 
 //Size and length definitions(Data)
-#define DNS_PACKET_MINSIZE                            (sizeof(dns_hdr) + 1U + sizeof(dns_qry))                                          //Minimum DNS packet size(DNS Header + Minimum Domain<ROOT> + DNS Query)
-#define EDNS_ADDITIONAL_MAXSIZE                       (sizeof(dns_record_opt) * 2U + sizeof(edns_client_subnet) + sizeof(in6_addr))     //Maximum of EDNS Additional Record Resources size
+#define DNS_PACKET_MINSIZE                            (sizeof(dns_hdr) + 1U + sizeof(dns_qry))                                                 //Minimum DNS packet size(DNS Header + Minimum Domain<ROOT> + DNS Query)
+#define EDNS_ADDITIONAL_MAXSIZE                       (sizeof(dns_record_opt) * 2U + sizeof(edns_client_subnet) + sizeof(in6_addr))            //Maximum of EDNS Additional Record Resources size
 #define HTTP_TOP_HEADER_LENGTH                        (strlen("HTTP/"))
 #define HTTP_RESPONSE_MINSIZE                         (HTTP_TOP_HEADER_LENGTH + HTTP_VERSION_LENGTH + strlen(" ") + HTTP_STATUS_CODE_LENGTH)   //Minimum size of HTTP server response
 #define DNSCRYPT_BUFFER_RESERVE_LEN                   (DNSCURVE_MAGIC_QUERY_LEN + crypto_box_PUBLICKEYBYTES + crypto_box_HALF_NONCEBYTES - crypto_box_BOXZEROBYTES)
@@ -199,7 +199,7 @@
 #define DEFAULT_RELIABLE_ONCE_SOCKET_TIMEOUT          3000U                       //Default timeout of reliable once sockets(Such as TCP, 3000 ms/3 seconds)
 #define DEFAULT_RELIABLE_SERIAL_SOCKET_TIMEOUT        1500U                       //Default timeout of reliable serial sockets(Such as TCP, 1500 ms/1.5 second)
 #define DEFAULT_UNRELIABLE_ONCE_SOCKET_TIMEOUT        2000U                       //Default timeout of unreliable once sockets(Such as ICMP/ICMPv6/UDP, 2000 ms/2 seconds)
-#define DEFAULT_UNRELIABLE_SERIAL_SOCKET_TIMEOUT      1000U                        //Default timeout of unreliable serial sockets(Such as ICMP/ICMPv6/UDP, 1000 ms/1 second)
+#define DEFAULT_UNRELIABLE_SERIAL_SOCKET_TIMEOUT      1000U                       //Default timeout of unreliable serial sockets(Such as ICMP/ICMPv6/UDP, 1000 ms/1 second)
 #if defined(ENABLE_LIBSODIUM)
 	#define DEFAULT_DNSCURVE_RECHECK_TIME                 1800U                                    //Default DNSCurve keys recheck time(30 minutes/1800 seconds)
 	#define DEFAULT_DNSCURVE_RELIABLE_SOCKET_TIMEOUT      DEFAULT_RELIABLE_ONCE_SOCKET_TIMEOUT     //Same as default timeout of reliable sockets

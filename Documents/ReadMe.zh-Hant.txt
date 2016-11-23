@@ -857,7 +857,7 @@ Hosts 設定檔分為多個提供不同功能的區域
 * Dnsmasq Address - Dnsmasq 相容地址格式
   * Address 相容格式適用于 Hosts/CNAME Hosts - 主要 Hosts 清單/CNAME Hosts 清單
   * 有效參數格式：
-    * 首碼支援 --Address=/ 或 --address=/ 或 Address=/ 或 address=/
+    * 首碼支援 --ADDRESS=/ 或 --Address=/ 或 --address=/ 或 ADDRESS=/ 或 Address=/ 或 address=/
     * 普通功能變數名稱字串匹配模式為 "Address=/功能變數名稱尾碼/(位址)"（不含引號，括弧內為可選項目），功能變數名稱尾碼如果只填入 "#" 則表示匹配所有功能變數名稱
     * 正則運算式模式為 "Address=/:正則運算式:/(位址)"（不含引號，括弧內為可選項目）
     * 位址部分如果留空不填，則相當於 Banned - 黑名單條目
@@ -879,7 +879,7 @@ Hosts 設定檔分為多個提供不同功能的區域
   * 要使用本功能，必須將設定檔內的 Local Hosts 選項打開！
   * Server 相容格式適用于 Local Hosts - 境內 DNS 解析功能變數名稱清單
   * 有效參數格式：
-    * 首碼支援 --Server=/ 或 --server=/ 或 Server=/ 或 server=/
+    * 首碼支援 --SERVER=/ 或 --Server=/ 或 --server=/ 或 SERVER=/ 或 Server=/ 或 server=/
     * 普通功能變數名稱字串匹配模式為 "Server=/(功能變數名稱尾碼)/(指定進行解析的 DNS 位址(#埠))"（不含引號，括弧內為可選項目）
     * 正則運算式模式為 "Server=/(:正則運算式:)/(指定進行解析的 DNS 位址(#埠))"（不含引號，括弧內為可選項目）
     * 功能變數名稱尾碼或者 :正則運算式: 部分留空不填，相當於匹配不符合標準的功能變數名稱，例如沒有任何 . 的功能變數名稱

@@ -104,7 +104,7 @@ void MonitorLauncher(
 			(Parameter.RequestMode_Network == REQUEST_MODE_BOTH || Parameter.RequestMode_Network == REQUEST_MODE_IPV6 || //IPv6
 			(Parameter.RequestMode_Network == REQUEST_MODE_IPV4 && Parameter.Target_Server_Main_IPv4.AddressData.Storage.ss_family == 0))) //Non-IPv4
 		{
-			std::thread ICMPv6Thread(std::bind(ICMPTestRequest, AF_INET6));
+			std::thread ICMPv6Thread(std::bind(ICMP_TestRequest, AF_INET6));
 			ICMPv6Thread.detach();
 		}
 
@@ -113,8 +113,8 @@ void MonitorLauncher(
 			(Parameter.RequestMode_Network == REQUEST_MODE_BOTH || Parameter.RequestMode_Network == REQUEST_MODE_IPV4 || //IPv4
 			(Parameter.RequestMode_Network == REQUEST_MODE_IPV6 && Parameter.Target_Server_Main_IPv6.AddressData.Storage.ss_family == 0))) //Non-IPv6
 		{
-			std::thread ICMPThread(std::bind(ICMPTestRequest, AF_INET));
-			ICMPThread.detach();
+			std::thread ICMP_Thread(std::bind(ICMP_TestRequest, AF_INET));
+			ICMP_Thread.detach();
 		}
 	}
 #endif
@@ -133,11 +133,11 @@ void MonitorLauncher(
 
 //MailSlot and FIFO monitor
 #if defined(PLATFORM_WIN)
-	std::thread FlushDNSMailSlotMonitorThread(std::bind(FlushDNSMailSlotMonitor));
-	FlushDNSMailSlotMonitorThread.detach();
+	std::thread Flush_DNSMailSlotMonitorThread(std::bind(Flush_DNS_MailSlotMonitor));
+	Flush_DNSMailSlotMonitorThread.detach();
 #elif (defined(PLATFORM_LINUX) || defined(PLATFORM_MACOS))
-	std::thread FlushDNSFIFOMonitorThread(std::bind(FlushDNSFIFOMonitor));
-	FlushDNSFIFOMonitorThread.detach();
+	std::thread Flush_DNS_FIFO_MonitorThread(std::bind(Flush_DNS_FIFO_Monitor));
+	Flush_DNS_FIFO_MonitorThread.detach();
 #endif
 
 	return;
@@ -189,7 +189,7 @@ bool MonitorInit(
 						((PSOCKADDR_IN6)&LocalSocketData.SockAddr)->sin6_port = ((PSOCKADDR_IN6)&ListenAddressIter)->sin6_port;
 
 					//Add to global list.
-						std::thread MonitorThreadTemp(std::bind(UDPMonitor, LocalSocketData, Result));
+						std::thread MonitorThreadTemp(std::bind(UDP_Monitor, LocalSocketData, Result));
 						MonitorThread.at(MonitorThreadIndex).swap(MonitorThreadTemp);
 						++MonitorThreadIndex;
 						LocalSocketData.Socket = 0;
@@ -224,7 +224,7 @@ bool MonitorInit(
 							((PSOCKADDR_IN6)&LocalSocketData.SockAddr)->sin6_port = ListenPortIter;
 
 						//Add to global list.
-							std::thread MonitorThreadTemp(std::bind(UDPMonitor, LocalSocketData, Result));
+							std::thread MonitorThreadTemp(std::bind(UDP_Monitor, LocalSocketData, Result));
 							MonitorThread.at(MonitorThreadIndex).swap(MonitorThreadTemp);
 							++MonitorThreadIndex;
 							LocalSocketData.Socket = 0;
@@ -270,7 +270,7 @@ bool MonitorInit(
 						((PSOCKADDR_IN6)&LocalSocketData.SockAddr)->sin6_port = ((PSOCKADDR_IN6)&ListenAddressIter)->sin6_port;
 
 					//Add to global list.
-						std::thread MonitorThreadTemp(std::bind(TCPMonitor, LocalSocketData, Result));
+						std::thread MonitorThreadTemp(std::bind(TCP_Monitor, LocalSocketData, Result));
 						MonitorThread.at(MonitorThreadIndex).swap(MonitorThreadTemp);
 						++MonitorThreadIndex;
 						LocalSocketData.Socket = 0;
@@ -305,7 +305,7 @@ bool MonitorInit(
 							((PSOCKADDR_IN6)&LocalSocketData.SockAddr)->sin6_port = ListenPortIter;
 
 						//Add to global list.
-							std::thread MonitorThreadTemp(std::bind(TCPMonitor, LocalSocketData, Result));
+							std::thread MonitorThreadTemp(std::bind(TCP_Monitor, LocalSocketData, Result));
 							MonitorThread.at(MonitorThreadIndex).swap(MonitorThreadTemp);
 							++MonitorThreadIndex;
 							LocalSocketData.Socket = 0;
@@ -354,7 +354,7 @@ bool MonitorInit(
 						((PSOCKADDR_IN)&LocalSocketData.SockAddr)->sin_port = ((PSOCKADDR_IN)&ListenAddressIter)->sin_port;
 
 					//Add to global list.
-						std::thread MonitorThreadTemp(std::bind(UDPMonitor, LocalSocketData, Result));
+						std::thread MonitorThreadTemp(std::bind(UDP_Monitor, LocalSocketData, Result));
 						MonitorThread.at(MonitorThreadIndex).swap(MonitorThreadTemp);
 						++MonitorThreadIndex;
 						LocalSocketData.Socket = 0;
@@ -389,7 +389,7 @@ bool MonitorInit(
 							((PSOCKADDR_IN)&LocalSocketData.SockAddr)->sin_port = ListenPortIter;
 
 						//Add to global list.
-							std::thread MonitorThreadTemp(std::bind(UDPMonitor, LocalSocketData, Result));
+							std::thread MonitorThreadTemp(std::bind(UDP_Monitor, LocalSocketData, Result));
 							MonitorThread.at(MonitorThreadIndex).swap(MonitorThreadTemp);
 							++MonitorThreadIndex;
 							LocalSocketData.Socket = 0;
@@ -435,7 +435,7 @@ bool MonitorInit(
 						((PSOCKADDR_IN)&LocalSocketData.SockAddr)->sin_port = ((PSOCKADDR_IN)&ListenAddressIter)->sin_port;
 
 					//Add to global list.
-						std::thread MonitorThreadTemp(std::bind(TCPMonitor, LocalSocketData, Result));
+						std::thread MonitorThreadTemp(std::bind(TCP_Monitor, LocalSocketData, Result));
 						MonitorThread.at(MonitorThreadIndex).swap(MonitorThreadTemp);
 						++MonitorThreadIndex;
 						LocalSocketData.Socket = 0;
@@ -472,7 +472,7 @@ bool MonitorInit(
 							((PSOCKADDR_IN)&LocalSocketData.SockAddr)->sin_port = ListenPortIter;
 
 						//Add to global list.
-							std::thread InnerMonitorThreadTemp(std::bind(TCPMonitor, LocalSocketData, Result));
+							std::thread InnerMonitorThreadTemp(std::bind(TCP_Monitor, LocalSocketData, Result));
 							MonitorThread.at(MonitorThreadIndex).swap(InnerMonitorThreadTemp);
 							++MonitorThreadIndex;
 							LocalSocketData.Socket = 0;
@@ -491,7 +491,7 @@ bool MonitorInit(
 //Start monitor request consumer threads.
 	if (Parameter.ThreadPoolBaseNum > 0)
 	{
-		for (size_t Index = 0;Index < Parameter.ThreadPoolBaseNum;++Index)
+		for (MonitorThreadIndex = 0;MonitorThreadIndex < Parameter.ThreadPoolBaseNum;++MonitorThreadIndex)
 		{
 		//Start monitor consumer thread.
 			std::thread MonitorConsumerThread(std::bind(MonitorRequestConsumer));
@@ -500,6 +500,7 @@ bool MonitorInit(
 
 		*GlobalRunningStatus.ThreadRunningNum += Parameter.ThreadPoolBaseNum;
 		*GlobalRunningStatus.ThreadRunningFreeNum += Parameter.ThreadPoolBaseNum;
+		MonitorThreadIndex = 0;
 	}
 
 //Join threads.
@@ -519,7 +520,7 @@ bool MonitorInit(
 }
 
 //Local DNS server with UDP protocol
-bool UDPMonitor(
+bool UDP_Monitor(
 	const SOCKET_DATA LocalSocketData, 
 	bool * const Result)
 {
@@ -645,7 +646,7 @@ bool UDPMonitor(
 }
 
 //Local DNS server with TCP protocol
-bool TCPMonitor(
+bool TCP_Monitor(
 	const SOCKET_DATA LocalSocketData, 
 	bool * const Result)
 {
@@ -746,8 +747,8 @@ bool TCPMonitor(
 					MonitorRequestProvider(MonitorQueryData);
 				}
 				else { //New thread mode
-					std::thread TCPReceiveThread(std::bind(TCPReceiveProcess, MonitorQueryData, nullptr, 0));
-					TCPReceiveThread.detach();
+					std::thread TCP_ReceiveThread(std::bind(TCP_ReceiveProcess, MonitorQueryData, nullptr, 0));
+					TCP_ReceiveThread.detach();
 				}
 
 				Index = (Index + 1U) % Parameter.ThreadPoolMaxNum;
@@ -775,7 +776,7 @@ bool TCPMonitor(
 }
 
 //TCP Monitor receive process
-bool TCPReceiveProcess(
+bool TCP_ReceiveProcess(
 	MONITOR_QUEUE_DATA MonitorQueryData, 
 	uint8_t * const OriginalRecv, 
 	size_t RecvSize)

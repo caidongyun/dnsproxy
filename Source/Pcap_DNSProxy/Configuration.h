@@ -24,19 +24,18 @@
 
 //Base definitions
 //Label types definitions
-//#define LABEL_STOP                            1U
-#define LABEL_IPFILTER                        2U
-#define LABEL_IPFILTER_BLACKLIST              3U
-#define LABEL_IPFILTER_LOCAL_ROUTING          4U
-#define LABEL_HOSTS_TYPE_WHITE                5U
-#define LABEL_HOSTS_TYPE_BANNED               6U
-#define LABEL_HOSTS_TYPE_WHITE_EXTENDED       7U
-#define LABEL_HOSTS_TYPE_BANNED_EXTENDED      8U
-#define LABEL_HOSTS_TYPE_NORMAL               9U
-#define LABEL_HOSTS_TYPE_CNAME                10U
-#define LABEL_HOSTS_TYPE_LOCAL                11U
-#define LABEL_HOSTS_TYPE_ADDRESS              12U
-#define LABEL_HOSTS_TYPE_SOURCE               13U
+#define LABEL_IPFILTER                        1U
+#define LABEL_IPFILTER_BLACKLIST              2U
+#define LABEL_IPFILTER_LOCAL_ROUTING          3U
+#define LABEL_HOSTS_TYPE_WHITE                4U
+#define LABEL_HOSTS_TYPE_BANNED               5U
+#define LABEL_HOSTS_TYPE_WHITE_EXTENDED       6U
+#define LABEL_HOSTS_TYPE_BANNED_EXTENDED      7U
+#define LABEL_HOSTS_TYPE_NORMAL               8U
+#define LABEL_HOSTS_TYPE_CNAME                9U
+#define LABEL_HOSTS_TYPE_LOCAL                10U
+#define LABEL_HOSTS_TYPE_ADDRESS              11U
+#define LABEL_HOSTS_TYPE_SOURCE               12U
 
 //Length definitions
 #define READ_DATA_MINSIZE                     4U
@@ -58,7 +57,6 @@ extern std::vector<FILE_DATA> FileList_Config, FileList_IPFilter, FileList_Hosts
 extern std::vector<DIFFERNET_FILE_SET_IPFILTER> *IPFilterFileSetUsing, *IPFilterFileSetModificating;
 extern std::vector<DIFFERNET_FILE_SET_HOSTS> *HostsFileSetUsing, *HostsFileSetModificating;
 extern std::mutex IPFilterFileLock, HostsFileLock;
-extern size_t HopLimitIndex[];
 
 //Functions in Configuration.cpp
 bool ReadText(

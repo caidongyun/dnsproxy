@@ -850,7 +850,7 @@ Hosts 配置文件分为多个提供不同功能的区域
 * Dnsmasq Address - Dnsmasq 兼容地址格式
   * Address 兼容格式适用于 Hosts/CNAME Hosts - 主要 Hosts 列表/CNAME Hosts 列表
   * 有效参数格式：
-    * 前缀支持 --Address=/ 或 --address=/ 或 Address=/ 或 address=/
+    * 前缀支持 --ADDRESS=/ 或 --Address=/ 或 --address=/ 或 ADDRESS=/ 或 Address=/ 或 address=/
     * 普通域名字符串匹配模式为 "Address=/域名后缀/(地址)"（不含引号，括号内为可选项目），域名后缀如果只填入 "#" 则表示匹配所有域名
     * 正则表达式模式为 "Address=/:正则表达式:/(地址)"（不含引号，括号内为可选项目）
     * 地址部分如果留空不填，则相当于 Banned - 黑名单条目
@@ -872,7 +872,7 @@ Hosts 配置文件分为多个提供不同功能的区域
   * 要使用本功能，必须将配置文件内的 Local Hosts 选项打开！
   * Server 兼容格式适用于 Local Hosts - 境内 DNS 解析域名列表
   * 有效参数格式：
-    * 前缀支持 --Server=/ 或 --server=/ 或 Server=/ 或 server=/
+    * 前缀支持 --SERVER=/ 或 --Server=/ 或 --server=/ 或 SERVER=/ 或 Server=/ 或 server=/
     * 普通域名字符串匹配模式为 "Server=/(域名后缀)/(指定进行解析的 DNS 地址(#端口))"（不含引号，括号内为可选项目）
     * 正则表达式模式为 "Server=/(:正则表达式:)/(指定进行解析的 DNS 地址(#端口))"（不含引号，括号内为可选项目）
     * 域名后缀或者 :正则表达式: 部分留空不填，相当于匹配不符合标准的域名，例如没有任何 . 的域名

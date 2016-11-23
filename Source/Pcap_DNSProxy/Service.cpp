@@ -206,7 +206,7 @@ void WINAPI TerminateService(
 }
 
 //Mailslot of flush DNS cache Monitor
-bool FlushDNSMailSlotMonitor(
+bool Flush_DNS_MailSlotMonitor(
 	void)
 {
 //System security initialization
@@ -310,7 +310,7 @@ bool FlushDNSMailSlotMonitor(
 				Message.length() > wcslen(MAILSLOT_MESSAGE_FLUSH_DNS_DOMAIN) + DOMAIN_MINSIZE && //Domain length check
 				Message.length() < wcslen(MAILSLOT_MESSAGE_FLUSH_DNS_DOMAIN) + DOMAIN_MAXSIZE)
 			{
-				if (WCSToMBSString(Message.c_str() + wcslen(MAILSLOT_MESSAGE_FLUSH_DNS_DOMAIN), DOMAIN_MAXSIZE, Domain) && 
+				if (WCS_To_MBS_String(Message.c_str() + wcslen(MAILSLOT_MESSAGE_FLUSH_DNS_DOMAIN), DOMAIN_MAXSIZE, Domain) && 
 					Domain.length() > DOMAIN_MINSIZE && Domain.length() < DOMAIN_MAXSIZE)
 						FlushDNSCache((const uint8_t *)Domain.c_str());
 				else 
@@ -329,7 +329,7 @@ bool FlushDNSMailSlotMonitor(
 }
 
 //Mailslot of flush DNS cache sender
-bool WINAPI FlushDNSMailSlotSender(
+bool WINAPI Flush_DNS_MailSlotSender(
 	const wchar_t * const Domain)
 {
 //Mailslot initialization
@@ -400,7 +400,7 @@ bool WINAPI FlushDNSMailSlotSender(
 
 #elif (defined(PLATFORM_LINUX) || defined(PLATFORM_MACOS))
 //Flush DNS cache FIFO Monitor
-bool FlushDNSFIFOMonitor(
+bool Flush_DNS_FIFO_Monitor(
 	void)
 {
 //Initialization
@@ -471,7 +471,7 @@ bool FlushDNSFIFOMonitor(
 }
 
 //Flush DNS cache FIFO sender
-bool FlushDNSFIFOSender(
+bool Flush_DNS_FIFO_Sender(
 	const uint8_t * const Domain)
 {
 //Message initialization

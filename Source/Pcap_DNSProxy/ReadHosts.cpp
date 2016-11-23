@@ -307,7 +307,7 @@ bool ReadLocalHostsData(
 //Dnsmasq format(http://www.thekelleys.org.uk/dnsmasq/docs/dnsmasq-man.html)
 	if (Data.find("--") == 0)
 	{
-		if (Data.find("--Server=/") == std::string::npos && Data.find("--server=/") == std::string::npos)
+		if (Data.find("--SERVER=/") == std::string::npos && Data.find("--Server=/") == std::string::npos && Data.find("--server=/") == std::string::npos)
 		{
 			PrintError(LOG_LEVEL_1, LOG_ERROR_HOSTS, L"Data format error", 0, FileList_Hosts.at(FileIndex).FileName.c_str(), Line);
 			return false;
@@ -317,7 +317,7 @@ bool ReadLocalHostsData(
 			SeparatedOrResult = Data.find(ASCII_SLASH) + 1U;
 		}
 	}
-	else if (Data.find("Server=/") == 0 || Data.find("server=/") == 0)
+	else if (Data.find("SERVER=/") == 0 || Data.find("Server=/") == 0 || Data.find("server=/") == 0)
 	{
 		IsDnsmasqFormat = true;
 		SeparatedOrResult = Data.find(ASCII_SLASH) + 1U;
@@ -854,8 +854,8 @@ bool ReadMainHostsData(
 //Dnsmasq format(http://www.thekelleys.org.uk/dnsmasq/docs/dnsmasq-man.html)
 	else if (HostsType != HOSTS_TYPE_SOURCE && Data.find("--") == 0)
 	{
-		if ((Data.find("--Address=/") == std::string::npos && Data.find("--address=/") == std::string::npos) || 
-			Data.find("--Address=//") == 0 || Data.find("--address=//") == 0)
+		if ((Data.find("--ADDRESS=/") == std::string::npos && Data.find("--Address=/") == std::string::npos && Data.find("--address=/") == std::string::npos) || 
+			Data.find("--ADDRESS=//") == 0 || Data.find("--Address=//") == 0 || Data.find("--address=//") == 0)
 		{
 			PrintError(LOG_LEVEL_1, LOG_ERROR_HOSTS, L"Data format error", 0, FileList_Hosts.at(FileIndex).FileName.c_str(), Line);
 			return false;
@@ -865,9 +865,9 @@ bool ReadMainHostsData(
 			Separated = Data.find(ASCII_SLASH);
 		}
 	}
-	else if (HostsType != HOSTS_TYPE_SOURCE && (Data.find("Address=/") == 0 || Data.find("address=/") == 0))
+	else if (HostsType != HOSTS_TYPE_SOURCE && (Data.find("ADDRESS=/") == 0 || Data.find("Address=/") == 0 || Data.find("address=/") == 0))
 	{
-		if (Data.find("Address=//") == 0 || Data.find("address=//") == 0)
+		if (Data.find("ADDRESS=//") == 0 || Data.find("Address=//") == 0 || Data.find("address=//") == 0)
 		{
 			PrintError(LOG_LEVEL_1, LOG_ERROR_HOSTS, L"Data format error", 0, FileList_Hosts.at(FileIndex).FileName.c_str(), Line);
 			return false;

@@ -27,15 +27,15 @@ extern CONFIGURATION_TABLE Parameter;
 extern GLOBAL_STATUS GlobalRunningStatus;
 
 //Functions
-bool SOCKS_Selection_Exchange(
+bool SOCKS_SelectionExchange(
 	std::vector<SOCKET_DATA> &SocketDataList, 
 	std::vector<SOCKET_SELECTING_SERIAL_DATA> &SocketSelectingDataList, 
 	std::vector<ssize_t> &ErrorCodeList);
-bool SOCKS_Authentication_Exchange(
+bool SOCKS_AuthenticationExchange(
 	std::vector<SOCKET_DATA> &SocketDataList, 
 	std::vector<SOCKET_SELECTING_SERIAL_DATA> &SocketSelectingDataList, 
 	std::vector<ssize_t> &ErrorCodeList);
-bool SOCKS_Client_Command_Request(
+bool SOCKS_ClientCommandRequest(
 	const uint16_t Protocol, 
 	std::vector<SOCKET_DATA> &SocketDataList, 
 	std::vector<SOCKET_SELECTING_SERIAL_DATA> &SocketSelectingDataList, 

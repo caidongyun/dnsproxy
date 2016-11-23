@@ -161,18 +161,18 @@ bool ReadCommands(
 				}
 				else {
 				#if defined(PLATFORM_WIN)
-					FlushDNSMailSlotSender(argv[2U]);
+					Flush_DNS_MailSlotSender(argv[2U]);
 				#elif (defined(PLATFORM_LINUX) || defined(PLATFORM_MACOS))
-					FlushDNSFIFOSender((const uint8_t *)argv[2U]);
+					Flush_DNS_FIFO_Sender((const uint8_t *)argv[2U]);
 				#endif
 				}
 			}
 		//Flush all DNS cache.
 			else {
 			#if defined(PLATFORM_WIN)
-				FlushDNSMailSlotSender(nullptr);
+				Flush_DNS_MailSlotSender(nullptr);
 			#elif (defined(PLATFORM_LINUX) || defined(PLATFORM_MACOS))
-				FlushDNSFIFOSender(nullptr);
+				Flush_DNS_FIFO_Sender(nullptr);
 			#endif
 			}
 
@@ -265,7 +265,7 @@ bool ReadCommands(
 
 			//LibSodium version
 			#if defined(ENABLE_LIBSODIUM)
-				if (MBSToWCSString((const uint8_t *)sodium_version_string(), strlen(sodium_version_string()), LibVersion))
+				if (MBS_To_WCS_String((const uint8_t *)sodium_version_string(), strlen(sodium_version_string()), LibVersion))
 					PrintToScreen(true, L"LibSodium version %ls\n", LibVersion.c_str());
 				else 
 					PrintToScreen(true, L"[System Error] Convert multiple byte or wide char string error.\n");
@@ -273,7 +273,7 @@ bool ReadCommands(
 
 			//WinPcap or LibPcap version
 			#if defined(ENABLE_PCAP)
-				if (MBSToWCSString((const uint8_t *)pcap_lib_version(), strlen(pcap_lib_version()), LibVersion))
+				if (MBS_To_WCS_String((const uint8_t *)pcap_lib_version(), strlen(pcap_lib_version()), LibVersion))
 					PrintToScreen(true, L"%ls\n", LibVersion.c_str());
 				else 
 					PrintToScreen(true, L"[System Error] Convert multiple byte or wide char string error.\n");
@@ -283,9 +283,9 @@ bool ReadCommands(
 			#if defined(ENABLE_TLS)
 				#if (defined(PLATFORM_LINUX) || defined(PLATFORM_MACOS))
 				#if OPENSSL_VERSION_NUMBER >= OPENSSL_VERSION_1_1_0 //OpenSSL version after 1.1.0
-					if (MBSToWCSString((const uint8_t *)OpenSSL_version(OPENSSL_VERSION), strnlen(OpenSSL_version(OPENSSL_VERSION), OPENSSL_STATIC_BUFFER_SIZE), LibVersion))
+					if (MBS_To_WCS_String((const uint8_t *)OpenSSL_version(OPENSSL_VERSION), strnlen(OpenSSL_version(OPENSSL_VERSION), OPENSSL_STATIC_BUFFER_SIZE), LibVersion))
 				#else //OpenSSL version before 1.1.0
-					if (MBSToWCSString((const uint8_t *)SSLeay_version(SSLEAY_VERSION), strnlen(SSLeay_version(SSLEAY_VERSION), OPENSSL_STATIC_BUFFER_SIZE), LibVersion))
+					if (MBS_To_WCS_String((const uint8_t *)SSLeay_version(SSLEAY_VERSION), strnlen(SSLeay_version(SSLEAY_VERSION), OPENSSL_STATIC_BUFFER_SIZE), LibVersion))
 				#endif
 						PrintToScreen(true, L"%ls\n", LibVersion.c_str());
 					else 
@@ -358,7 +358,7 @@ bool FileNameInit(
 	GlobalRunningStatus.sPath_Global->push_back(OriginalPath);
 	GlobalRunningStatus.sPath_Global->front().append("/");
 	std::wstring StringTemp;
-	if (!MBSToWCSString((const uint8_t *)OriginalPath, PATH_MAX + 1U, StringTemp))
+	if (!MBS_To_WCS_String((const uint8_t *)OriginalPath, PATH_MAX + 1U, StringTemp))
 		return false;
 	StringTemp.append(L"/");
 	GlobalRunningStatus.Path_Global->clear();

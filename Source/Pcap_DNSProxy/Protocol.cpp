@@ -1021,7 +1021,7 @@ bool CheckQueryData(
 	{
 	//Make packets with EDNS Label.
 		DNS_Header->Flags = htons(DNS_SET_R_TC);
-		AddEDNSLabelToAdditionalRR(Packet, nullptr);
+		Add_EDNS_To_Additional_RR(Packet, nullptr);
 
 	//Send request.
 		if (Packet->Length >= DNS_PACKET_MINSIZE)
@@ -1040,7 +1040,7 @@ bool CheckQueryData(
 				EDNSSocketData = (PSOCKET_DATA)&LocalSocketData;
 
 	//Add EDNS Label to query data.
-		AddEDNSLabelToAdditionalRR(Packet, EDNSSocketData);
+		Add_EDNS_To_Additional_RR(Packet, EDNSSocketData);
 	}
 
 //Check Hosts.
@@ -1141,7 +1141,7 @@ bool CheckConnectionStreamFin(
 }
 
 //Check response CNAME resource records
-size_t CheckResponseCNAME(
+size_t CheckResponse_CNAME(
 	uint8_t * const Buffer, 
 	const size_t Length, 
 	const size_t CNAME_Index, 
@@ -1151,7 +1151,7 @@ size_t CheckResponseCNAME(
 {
 //Mark whole DNS query.
 	std::string Domain;
-	size_t DataLength = MarkWholeDNSQuery(Buffer, Length, Buffer + CNAME_Index, CNAME_Index, Domain);
+	size_t DataLength = MarkWholePacketQuery(Buffer, Length, Buffer + CNAME_Index, CNAME_Index, Domain);
 	if (DataLength < DOMAIN_MINSIZE || DataLength >= DOMAIN_MAXSIZE)
 		return EXIT_FAILURE;
 	const auto DNS_Header = (pdns_hdr)Buffer;
@@ -1251,7 +1251,7 @@ size_t CheckResponseCNAME(
 					if (Parameter.EDNS_Label || DNS_Header->Additional > 0)
 					{
 						DNS_Header->Additional = 0;
-						DataLength = AddEDNSLabelToAdditionalRR(Buffer, DataLength, BufferSize, nullptr);
+						DataLength = Add_EDNS_To_Additional_RR(Buffer, DataLength, BufferSize, nullptr);
 					}
 
 					return DataLength;
@@ -1306,7 +1306,7 @@ size_t CheckResponseCNAME(
 					if (Parameter.EDNS_Label || DNS_Header->Additional > 0)
 					{
 						DNS_Header->Additional = 0;
-						DataLength = AddEDNSLabelToAdditionalRR(Buffer, DataLength, BufferSize, nullptr);
+						DataLength = Add_EDNS_To_Additional_RR(Buffer, DataLength, BufferSize, nullptr);
 					}
 
 					return DataLength;
@@ -1388,7 +1388,7 @@ size_t CheckResponseData(
 //Mark domain.
 	std::string Domain;
 	const uint8_t *DomainString = nullptr;
-	DNSQueryToChar(Buffer + sizeof(dns_hdr), Domain);
+	PacketQueryToString(Buffer + sizeof(dns_hdr), Domain);
 	if (!Domain.empty())
 		DomainString = (const uint8_t *)Domain.c_str();
 
@@ -1432,7 +1432,7 @@ size_t CheckResponseData(
 			ntohs(DNS_Record_Standard->Length) >= DOMAIN_MINSIZE && ntohs(DNS_Record_Standard->Length) < DOMAIN_MAXSIZE)
 		{
 			RecordNum = 0;
-			CNAME_DataLength = CheckResponseCNAME(Buffer, Length, DataLength, ntohs(DNS_Record_Standard->Length), BufferSize, RecordNum);
+			CNAME_DataLength = CheckResponse_CNAME(Buffer, Length, DataLength, ntohs(DNS_Record_Standard->Length), BufferSize, RecordNum);
 			if (CNAME_DataLength >= DNS_PACKET_MINSIZE && RecordNum > 0)
 			{
 				DNS_Header->Answer = htons((uint16_t)(Index + 1U + RecordNum));
@@ -1455,7 +1455,7 @@ size_t CheckResponseData(
 				IsDNSSEC_Records = true;
 
 			//DNSSEC Validation
-				if (Parameter.DNSSEC_Validation && !CheckDNSSECRecords(Buffer + DataLength, ntohs(DNS_Record_Standard->Length), ntohs(DNS_Record_Standard->Type), BeforeType))
+				if (Parameter.DNSSEC_Validation && !Check_DNSSEC_Record(Buffer + DataLength, ntohs(DNS_Record_Standard->Length), ntohs(DNS_Record_Standard->Type), BeforeType))
 					return EXIT_FAILURE;
 			}
 		}
@@ -1536,7 +1536,7 @@ size_t CheckResponseData(
 }
 
 //Check DNSSEC Records
-bool CheckDNSSECRecords(
+bool Check_DNSSEC_Record(
 	const uint8_t * const Buffer, 
 	const size_t Length, 
 	const uint16_t Type, 

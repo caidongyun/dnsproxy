@@ -609,7 +609,7 @@ bool OpenSSL_PrintError(
 	const wchar_t *ErrorMessage)
 {
 	std::wstring Message;
-	if (MBSToWCSString(OpenSSL_ErrorMessage, OPENSSL_STATIC_BUFFER_SIZE, Message))
+	if (MBS_To_WCS_String(OpenSSL_ErrorMessage, OPENSSL_STATIC_BUFFER_SIZE, Message))
 	{
 		std::wstring InnerMessage(ErrorMessage); //OpenSSL will return message like "error:..."
 		InnerMessage.append(Message);

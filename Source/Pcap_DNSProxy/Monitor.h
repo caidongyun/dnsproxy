@@ -30,13 +30,13 @@ extern ALTERNATE_SWAP_TABLE AlternateSwapList;
 extern DNSCURVE_CONFIGURATION_TABLE DNSCurveParameter, DNSCurveParameterModificating;
 #endif
 extern std::deque<SOCKET_MARKING_DATA> SocketMarkingList;
-extern std::mutex LocalAddressLock[NETWORK_LAYER_PARTNUM], SocketMarkingLock;
+extern std::mutex LocalAddressLock[], SocketMarkingLock;
 
 //Functions
-bool UDPMonitor(
+bool UDP_Monitor(
 	const SOCKET_DATA LocalSocketData, 
 	bool * const Result);
-bool TCPMonitor(
+bool TCP_Monitor(
 	const SOCKET_DATA LocalSocketData, 
 	bool * const Result);
 #if defined(PLATFORM_WIN)

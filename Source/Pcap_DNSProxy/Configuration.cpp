@@ -20,7 +20,7 @@
 #include "Configuration.h"
 
 //Global variables
-size_t HopLimitIndex[NETWORK_LAYER_PARTNUM] {0, 0};
+size_t HopLimitIndex[]{0, 0};
 
 //Read texts
 bool ReadText(
@@ -28,6 +28,13 @@ bool ReadText(
 	const size_t InputType, 
 	const size_t FileIndex)
 {
+//Reset global variables.
+	if (InputType == READ_TEXT_PARAMETER || InputType == READ_TEXT_PARAMETER_MONITOR)
+	{
+		HopLimitIndex[NETWORK_LAYER_IPV6] = 0;
+		HopLimitIndex[NETWORK_LAYER_IPV4] = 0;
+	}
+
 //Initialization
 	std::shared_ptr<uint8_t> FileBuffer(new uint8_t[FILE_BUFFER_SIZE]()), TextBuffer(new uint8_t[FILE_BUFFER_SIZE]());
 	memset(FileBuffer.get(), 0, FILE_BUFFER_SIZE);
@@ -35,13 +42,6 @@ bool ReadText(
 	std::string TextData;
 	size_t Encoding = 0, Index = 0, Line = 0, LabelType = 0;
 	auto IsEraseBOM = true, NewLine_Point = false, IsStopLabel = false;
-
-//Reset global variables.
-	if (InputType == READ_TEXT_PARAMETER || InputType == READ_TEXT_PARAMETER_MONITOR)
-	{
-		HopLimitIndex[NETWORK_LAYER_IPV6] = 0;
-		HopLimitIndex[NETWORK_LAYER_IPV4] = 0;
-	}
 
 //Read data.
 	while (!feof((FILE *)FileHandle))
@@ -1060,7 +1060,6 @@ void ClearModificatingListData(
 			}
 		}
 	}
-
 //Clear IPFilter file set.
 	else if (ClearType == READ_TEXT_IPFILTER)
 	{

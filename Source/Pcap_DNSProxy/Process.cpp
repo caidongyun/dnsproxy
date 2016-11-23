@@ -75,7 +75,7 @@ void MonitorRequestConsumer(
 		MonitorQueryData.first.Buffer = SendBuffer.get();
 		MonitorQueryData.first.BufferSize = Parameter.LargeBufferSize;
 		if (MonitorQueryData.first.Protocol == IPPROTO_TCP)
-			TCPReceiveProcess(MonitorQueryData, RecvBuffer.get(), Parameter.LargeBufferSize);
+			TCP_ReceiveProcess(MonitorQueryData, RecvBuffer.get(), Parameter.LargeBufferSize);
 		else if (MonitorQueryData.first.Protocol == IPPROTO_UDP)
 			EnterRequestProcess(MonitorQueryData, RecvBuffer.get(), Parameter.LargeBufferSize);
 
@@ -422,7 +422,7 @@ size_t CheckHostsProcess(
 //Request check
 	if (ntohs(DNS_Header->Question) == U16_NUM_ONE && CheckQueryNameLength(Packet->Buffer + sizeof(dns_hdr)) + 1U < DOMAIN_MAXSIZE)
 	{
-		if (DNSQueryToChar(Packet->Buffer + sizeof(dns_hdr), Domain) <= DOMAIN_MINSIZE)
+		if (PacketQueryToString(Packet->Buffer + sizeof(dns_hdr), Domain) <= DOMAIN_MINSIZE)
 			return EXIT_SUCCESS;
 		else 
 			CaseConvert(Domain, false);
@@ -480,7 +480,7 @@ size_t CheckHostsProcess(
 
 //Domain Name Reservation Considerations for "test."
 //RFC 6761, Special-Use Domain Names(https://tools.ietf.org/html/rfc6761)
-//Caching DNS servers SHOULD recognize test names as special and SHOULD NOT, by default, attempt to look up NS records for them, 
+// Caching DNS servers SHOULD recognize test names as special and SHOULD NOT, by default, attempt to look up NS records for them, 
 // or otherwise query authoritative DNS servers in an attempt to resolve test names. Instead, caching DNS servers SHOULD, by
 // default, generate immediate negative responses for all such queries. This is to avoid unnecessary load on the root name
 // servers and other name servers.  Caching DNS servers SHOULD offer a configuration option (disabled by default) to enable upstream
@@ -513,7 +513,7 @@ size_t CheckHostsProcess(
 			DNS_Header->Authority = 0;
 			DNS_Header->Additional = 0;
 			if (Parameter.EDNS_Label || Packet->EDNS_Record > 0)
-				DataLength = AddEDNSLabelToAdditionalRR(Result, DataLength, ResultSize, nullptr);
+				DataLength = Add_EDNS_To_Additional_RR(Result, DataLength, ResultSize, nullptr);
 
 			return DataLength;
 		}
@@ -540,7 +540,7 @@ size_t CheckHostsProcess(
 			DNS_Header->Authority = 0;
 			DNS_Header->Additional = 0;
 			if (Parameter.EDNS_Label || Packet->EDNS_Record > 0)
-				DataLength = AddEDNSLabelToAdditionalRR(Result, DataLength, ResultSize, nullptr);
+				DataLength = Add_EDNS_To_Additional_RR(Result, DataLength, ResultSize, nullptr);
 
 			return DataLength;
 		}
@@ -556,7 +556,7 @@ size_t CheckHostsProcess(
 
 //Domain Name Reservation Considerations for Example Domains
 //RFC 6761, Special-Use Domain Names(https://tools.ietf.org/html/rfc6761)
-//The domains "example.", "example.com.", "example.net.", "example.org.", and any names falling within those domains.
+// The domains "example.", "example.com.", "example.net.", "example.org.", and any names falling within those domains.
 // Caching DNS servers SHOULD NOT recognize example names as special and SHOULD resolve them normally.
 
 //PTR Records
@@ -615,7 +615,7 @@ size_t CheckHostsProcess(
 
 		//EDNS Label
 			if (Parameter.EDNS_Label || Packet->EDNS_Record > 0)
-				DataLength = AddEDNSLabelToAdditionalRR(Result, DataLength, ResultSize, nullptr);
+				DataLength = Add_EDNS_To_Additional_RR(Result, DataLength, ResultSize, nullptr);
 
 			return DataLength;
 		}
@@ -786,7 +786,7 @@ size_t CheckHostsProcess(
 					DNS_Header->Authority = 0;
 					DNS_Header->Additional = 0;
 					if (Parameter.EDNS_Label || Packet->EDNS_Record > 0)
-						DataLength = AddEDNSLabelToAdditionalRR(Result, DataLength, ResultSize, nullptr);
+						DataLength = Add_EDNS_To_Additional_RR(Result, DataLength, ResultSize, nullptr);
 
 					return DataLength;
 				}
@@ -837,7 +837,7 @@ size_t CheckHostsProcess(
 					DNS_Header->Authority = 0;
 					DNS_Header->Additional = 0;
 					if (Parameter.EDNS_Label || Packet->EDNS_Record > 0)
-						DataLength = AddEDNSLabelToAdditionalRR(Result, DataLength, ResultSize, nullptr);
+						DataLength = Add_EDNS_To_Additional_RR(Result, DataLength, ResultSize, nullptr);
 
 					return DataLength;
 				}
@@ -947,7 +947,7 @@ bool LocalRequestProcess(
 	size_t DataLength = 0;
 	if (Parameter.LocalProtocol_Transport == REQUEST_MODE_TCP || MonitorQueryData.first.Protocol == IPPROTO_TCP)
 	{
-		DataLength = TCPRequestSingle(REQUEST_PROCESS_LOCAL, MonitorQueryData.first.Buffer, EDNS_SwitchLength, OriginalRecv, RecvSize, &MonitorQueryData.first.LocalTarget);
+		DataLength = TCP_RequestSingle(REQUEST_PROCESS_LOCAL, MonitorQueryData.first.Buffer, EDNS_SwitchLength, OriginalRecv, RecvSize, &MonitorQueryData.first.LocalTarget);
 
 	//Send response.
 		if (DataLength >= DNS_PACKET_MINSIZE && DataLength < RecvSize)
@@ -958,7 +958,7 @@ bool LocalRequestProcess(
 	}
 
 //UDP request and Send response.
-	DataLength = UDPCompleteRequestSingle(REQUEST_PROCESS_LOCAL, MonitorQueryData.first.Buffer, EDNS_SwitchLength, OriginalRecv, RecvSize, &MonitorQueryData.first.LocalTarget);
+	DataLength = UDP_CompleteRequestSingle(REQUEST_PROCESS_LOCAL, MonitorQueryData.first.Buffer, EDNS_SwitchLength, OriginalRecv, RecvSize, &MonitorQueryData.first.LocalTarget);
 	if (DataLength >= DNS_PACKET_MINSIZE && DataLength < RecvSize)
 	{
 		SendToRequester(MonitorQueryData.first.Protocol, OriginalRecv, DataLength, RecvSize, MonitorQueryData.second);
@@ -1104,10 +1104,10 @@ bool DirectRequestProcess(
 	{
 	//Multiple request process
 		if (Parameter.AlternateMultipleRequest || Parameter.MultipleRequestTimes > 1U)
-			DataLength = TCPRequestMultiple(REQUEST_PROCESS_DIRECT, MonitorQueryData.first.Buffer, EDNS_SwitchLength, OriginalRecv, RecvSize);
+			DataLength = TCP_RequestMultiple(REQUEST_PROCESS_DIRECT, MonitorQueryData.first.Buffer, EDNS_SwitchLength, OriginalRecv, RecvSize);
 	//Normal request process
 		else 
-			DataLength = TCPRequestSingle(REQUEST_PROCESS_DIRECT, MonitorQueryData.first.Buffer, EDNS_SwitchLength, OriginalRecv, RecvSize, nullptr);
+			DataLength = TCP_RequestSingle(REQUEST_PROCESS_DIRECT, MonitorQueryData.first.Buffer, EDNS_SwitchLength, OriginalRecv, RecvSize, nullptr);
 
 	//Send response.
 		if (DataLength >= DNS_PACKET_MINSIZE && DataLength < RecvSize)
@@ -1119,9 +1119,9 @@ bool DirectRequestProcess(
 
 //UDP request
 	if (Parameter.AlternateMultipleRequest || Parameter.MultipleRequestTimes > 1U) //Multiple request process
-		DataLength = UDPCompleteRequestMultiple(REQUEST_PROCESS_DIRECT, MonitorQueryData.first.Buffer, EDNS_SwitchLength, OriginalRecv, RecvSize);
+		DataLength = UDP_CompleteRequestMultiple(REQUEST_PROCESS_DIRECT, MonitorQueryData.first.Buffer, EDNS_SwitchLength, OriginalRecv, RecvSize);
 	else //Normal request process
-		DataLength = UDPCompleteRequestSingle(REQUEST_PROCESS_DIRECT, MonitorQueryData.first.Buffer, EDNS_SwitchLength, OriginalRecv, RecvSize, nullptr);
+		DataLength = UDP_CompleteRequestSingle(REQUEST_PROCESS_DIRECT, MonitorQueryData.first.Buffer, EDNS_SwitchLength, OriginalRecv, RecvSize, nullptr);
 
 //Send response.
 	if (DataLength >= DNS_PACKET_MINSIZE && DataLength < RecvSize)
@@ -1168,10 +1168,10 @@ bool DNSCurveRequestProcess(
 	{
 	//Multiple request process
 		if (Parameter.AlternateMultipleRequest || Parameter.MultipleRequestTimes > 1U)
-			DataLength = DNSCurveTCPRequestMultiple(MonitorQueryData.first.Buffer, EDNS_SwitchLength, OriginalRecv, RecvSize);
+			DataLength = DNSCurve_TCP_RequestMultiple(MonitorQueryData.first.Buffer, EDNS_SwitchLength, OriginalRecv, RecvSize);
 	//Normal request process
 		else 
-			DataLength = DNSCurveTCPRequestSingle(MonitorQueryData.first.Buffer, EDNS_SwitchLength, OriginalRecv, RecvSize);
+			DataLength = DNSCurve_TCP_RequestSingle(MonitorQueryData.first.Buffer, EDNS_SwitchLength, OriginalRecv, RecvSize);
 
 	//Send response.
 		if (DataLength >= DNS_PACKET_MINSIZE && DataLength < RecvSize)
@@ -1183,9 +1183,9 @@ bool DNSCurveRequestProcess(
 
 //UDP request
 	if (Parameter.AlternateMultipleRequest || Parameter.MultipleRequestTimes > 1U) //Multiple request process
-		DataLength = DNSCurveUDPRequestMultiple(MonitorQueryData.first.Buffer, EDNS_SwitchLength, OriginalRecv, RecvSize);
+		DataLength = DNSCurve_UDP_RequestMultiple(MonitorQueryData.first.Buffer, EDNS_SwitchLength, OriginalRecv, RecvSize);
 	else //Normal request process
-		DataLength = DNSCurveUDPRequestSingle(MonitorQueryData.first.Buffer, EDNS_SwitchLength, OriginalRecv, RecvSize);
+		DataLength = DNSCurve_UDP_RequestSingle(MonitorQueryData.first.Buffer, EDNS_SwitchLength, OriginalRecv, RecvSize);
 
 //Send response.
 	if (DataLength >= DNS_PACKET_MINSIZE && DataLength < RecvSize)
@@ -1229,10 +1229,10 @@ bool TCP_RequestProcess(
 //Multiple request process
 	size_t DataLength = 0;
 	if (Parameter.AlternateMultipleRequest || Parameter.MultipleRequestTimes > 1U)
-		DataLength = TCPRequestMultiple(REQUEST_PROCESS_TCP, MonitorQueryData.first.Buffer, EDNS_SwitchLength, OriginalRecv, RecvSize);
+		DataLength = TCP_RequestMultiple(REQUEST_PROCESS_TCP, MonitorQueryData.first.Buffer, EDNS_SwitchLength, OriginalRecv, RecvSize);
 //Normal request process
 	else 
-		DataLength = TCPRequestSingle(REQUEST_PROCESS_TCP, MonitorQueryData.first.Buffer, EDNS_SwitchLength, OriginalRecv, RecvSize, nullptr);
+		DataLength = TCP_RequestSingle(REQUEST_PROCESS_TCP, MonitorQueryData.first.Buffer, EDNS_SwitchLength, OriginalRecv, RecvSize, nullptr);
 
 //Send response.
 	if (DataLength >= DNS_PACKET_MINSIZE && DataLength < RecvSize)
@@ -1291,10 +1291,10 @@ void UDP_RequestProcess(
 
 //Multiple request process
 	if (Parameter.AlternateMultipleRequest || Parameter.MultipleRequestTimes > 1U)
-		UDPRequestMultiple(REQUEST_PROCESS_UDP_NORMAL, MonitorQueryData.first.Protocol, MonitorQueryData.first.Buffer, EDNS_SwitchLength, &MonitorQueryData.second);
+		UDP_RequestMultiple(REQUEST_PROCESS_UDP_NORMAL, MonitorQueryData.first.Protocol, MonitorQueryData.first.Buffer, EDNS_SwitchLength, &MonitorQueryData.second);
 //Normal request process
 	else 
-		UDPRequestSingle(REQUEST_PROCESS_UDP_NORMAL, MonitorQueryData.first.Protocol, MonitorQueryData.first.Buffer, EDNS_SwitchLength, &MonitorQueryData.second);
+		UDP_RequestSingle(REQUEST_PROCESS_UDP_NORMAL, MonitorQueryData.first.Protocol, MonitorQueryData.first.Buffer, EDNS_SwitchLength, &MonitorQueryData.second);
 
 //Fin TCP request connection.
 	if (MonitorQueryData.first.Protocol == IPPROTO_TCP && SocketSetting(MonitorQueryData.second.Socket, SOCKET_SETTING_INVALID_CHECK, false, nullptr))
@@ -1456,7 +1456,7 @@ bool MarkDomainCache(
 	}
 
 //Mark to global list.
-	if (DNSQueryToChar(Buffer + sizeof(dns_hdr), DNSCacheDataTemp.Domain) > DOMAIN_MINSIZE)
+	if (PacketQueryToString(Buffer + sizeof(dns_hdr), DNSCacheDataTemp.Domain) > DOMAIN_MINSIZE)
 	{
 	//Domain Case Conversion
 		CaseConvert(DNSCacheDataTemp.Domain, false);

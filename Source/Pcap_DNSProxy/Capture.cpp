@@ -42,7 +42,7 @@ void CaptureInit(
 	//Open all devices.
 		if (pcap_findalldevs(&pThedevs, (char *)ErrorBuffer) < 0)
 		{
-			if (MBSToWCSString(ErrorBuffer, PCAP_ERRBUF_SIZE, Message))
+			if (MBS_To_WCS_String(ErrorBuffer, PCAP_ERRBUF_SIZE, Message))
 				PrintError(LOG_LEVEL_3, LOG_ERROR_PCAP, Message.c_str(), 0, nullptr, 0);
 			else 
 				PrintError(LOG_LEVEL_2, LOG_ERROR_SYSTEM, L"Convert multiple byte or wide char string error", 0, nullptr, 0);
@@ -348,7 +348,7 @@ DevicesNotSkip:
 	if (DeviceHandle == nullptr)
 	{
 		std::wstring Message;
-		if (MBSToWCSString(Buffer.get(), PCAP_ERRBUF_SIZE, Message))
+		if (MBS_To_WCS_String(Buffer.get(), PCAP_ERRBUF_SIZE, Message))
 			PrintError(LOG_LEVEL_3, LOG_ERROR_PCAP, Message.c_str(), 0, nullptr, 0);
 		else 
 			PrintError(LOG_LEVEL_2, LOG_ERROR_SYSTEM, L"Convert multiple byte or wide char string error", 0, nullptr, 0);
@@ -381,7 +381,7 @@ DevicesNotSkip:
 #endif
 	{
 		std::wstring Message;
-		if (MBSToWCSString((const uint8_t *)pcap_geterr(DeviceHandle), PCAP_ERRBUF_SIZE, Message))
+		if (MBS_To_WCS_String((const uint8_t *)pcap_geterr(DeviceHandle), PCAP_ERRBUF_SIZE, Message))
 			PrintError(LOG_LEVEL_3, LOG_ERROR_PCAP, Message.c_str(), 0, nullptr, 0);
 		else 
 			PrintError(LOG_LEVEL_2, LOG_ERROR_SYSTEM, L"Convert multiple byte or wide char string error", 0, nullptr, 0);
@@ -394,7 +394,7 @@ DevicesNotSkip:
 	if (pcap_setfilter(DeviceHandle, &BPF_Code) == PCAP_ERROR)
 	{
 		std::wstring Message;
-		if (MBSToWCSString((const uint8_t *)pcap_geterr(DeviceHandle), PCAP_ERRBUF_SIZE, Message))
+		if (MBS_To_WCS_String((const uint8_t *)pcap_geterr(DeviceHandle), PCAP_ERRBUF_SIZE, Message))
 			PrintError(LOG_LEVEL_3, LOG_ERROR_PCAP, Message.c_str(), 0, nullptr, 0);
 		else 
 			PrintError(LOG_LEVEL_2, LOG_ERROR_SYSTEM, L"Convert multiple byte or wide char string error", 0, nullptr, 0);
@@ -419,7 +419,6 @@ DevicesNotSkip:
 	ParamList.Buffer = Buffer.get();
 	ParamList.BufferSize = Parameter.LargeBufferSize + PADDING_RESERVED_BYTES;
 	ssize_t Result = 0;
-	std::unique_lock<std::mutex> CaptureMutex(CaptureLock, std::defer_lock);
 
 //Start monitor.
 	for (;;)
@@ -427,8 +426,12 @@ DevicesNotSkip:
 		Result = pcap_loop(DeviceHandle, PCAP_LOOP_INFINITY, CaptureHandler, (unsigned char *)&ParamList);
 		if (Result < 0)
 		{
+		//Shutdown this capture handle.
+			pcap_freecode(&BPF_Code);
+			pcap_close(DeviceHandle);
+
 		//Delete this capture from devices list.
-			CaptureMutex.lock();
+			std::lock_guard<std::mutex> CaptureMutex(CaptureLock);
 			for (auto CaptureIter = PcapRunningList.begin();CaptureIter != PcapRunningList.end();)
 			{
 				if (*CaptureIter == CaptureDevice)
@@ -436,11 +439,7 @@ DevicesNotSkip:
 				else 
 					++CaptureIter;
 			}
-			CaptureMutex.unlock();
 
-		//Exit this capture thread.
-			pcap_freecode(&BPF_Code);
-			pcap_close(DeviceHandle);
 			return false;
 		}
 		else {
@@ -571,13 +570,14 @@ bool CaptureNetworkLayer(
 					break;
 				}
 			}
-
-			if (PacketSource == nullptr)
-				return false;
 		}
 		else {
 			return false;
 		}
+
+	//Source of packet pointer check.
+		if (PacketSource == nullptr)
+			return false;
 
 	//Get Hop Limits from IPv6 DNS server.
 	//ICMPv6
@@ -690,29 +690,31 @@ bool CaptureNetworkLayer(
 					break;
 				}
 			}
-
-			if (PacketSource == nullptr)
-				return false;
 		}
 		else {
 			return false;
 		}
 
+	//Source of packet pointer check.
+		if (PacketSource == nullptr)
+			return false;
+
 	//IPv4 options check
 		if (Parameter.HeaderCheck_IPv4)
 		{
-		//No standard header length and header ID check
-			if (IPv4_Header->IHL > IPV4_STANDARD_IHL || IPv4_Header->ID == 0)
-				PacketSource->HopLimitData_Mark.TTL = IPv4_Header->TTL;
-
 		//ECN and DCSP(TOS bits) and Flags should not be set.
 			if (IPv4_Header->ECN_DSCP > 0 || IPv4_Header->Flags > 0)
 				return false;
+
+		//No standard header length and header ID check
+			if (IPv4_Header->IHL > IPV4_STANDARD_IHL || IPv4_Header->ID == 0)
+				PacketSource->HopLimitData_Mark.TTL = IPv4_Header->TTL;
 		}
 
 	//Get TTL from IPv4 DNS server.
 	//ICMP
-		if (Parameter.ICMP_Speed > 0 && IPv4_Header->Protocol == IPPROTO_ICMP && ntohs(IPv4_Header->Length) >= IPv4_Header->IHL * IPV4_IHL_BYTES_TIMES + sizeof(icmp_hdr))
+		if (Parameter.ICMP_Speed > 0 && IPv4_Header->Protocol == IPPROTO_ICMP && 
+			ntohs(IPv4_Header->Length) >= IPv4_Header->IHL * IPV4_IHL_BYTES_TIMES + sizeof(icmp_hdr))
 		{
 		//Validate ICMP checksum.
 			if (GetChecksum((uint16_t *)(Buffer + IPv4_Header->IHL * IPV4_IHL_BYTES_TIMES), ntohs(IPv4_Header->Length) - IPv4_Header->IHL * IPV4_IHL_BYTES_TIMES) != CHECKSUM_SUCCESS)
@@ -807,11 +809,13 @@ bool CaptureCheck_ICMP(
 	if (
 	//ICMPv6
 		(Protocol == AF_INET6 && 
-		((picmpv6_hdr)Buffer)->Type == ICMPV6_TYPE_REPLY && ((picmpv6_hdr)Buffer)->Code == ICMPV6_CODE_REPLY && ((picmpv6_hdr)Buffer)->ID == Parameter.ICMP_ID) || //ICMPv6 echo reply
+		((picmpv6_hdr)Buffer)->Type == ICMPV6_TYPE_REPLY && ((picmpv6_hdr)Buffer)->Code == ICMPV6_CODE_REPLY && //ICMPv6 echo reply
+		((picmpv6_hdr)Buffer)->ID == Parameter.ICMP_ID) || //Validate ICMPv6 ID.
 	//ICMP
 		(Protocol == AF_INET && 
 		((picmp_hdr)Buffer)->Type == ICMP_TYPE_ECHO && ((picmp_hdr)Buffer)->Code == ICMP_CODE_ECHO && //ICMP echo reply
-		((picmp_hdr)Buffer)->ID == Parameter.ICMP_ID && Parameter.ICMP_PaddingData != nullptr && Length == sizeof(icmp_hdr) + Parameter.ICMP_PaddingLength && 
+		((picmp_hdr)Buffer)->ID == Parameter.ICMP_ID && //Validate ICMP ID.
+		Parameter.ICMP_PaddingData != nullptr && Length == sizeof(icmp_hdr) + Parameter.ICMP_PaddingLength && 
 		memcmp(Parameter.ICMP_PaddingData, Buffer + sizeof(icmp_hdr), Parameter.ICMP_PaddingLength) == 0)) //Validate ICMP additional data.
 			return true;
 
@@ -840,8 +844,7 @@ bool CaptureCheck_TCP(
 		(ntohs(((ptcp_hdr)Buffer)->HeaderLength_Flags) & TCP_GET_BIT_FLAG) == TCP_STATUS_FIN_ACK || 
 	//RST bit is set, PSH and ACK bits are not set, Window size is zero and header options are empty.
 		((ntohs(((ptcp_hdr)Buffer)->HeaderLength_Flags) & TCP_GET_BIT_FLAG) == TCP_STATUS_RST && 
-		((ptcp_hdr)Buffer)->Acknowledge == 0 && 
-		((ptcp_hdr)Buffer)->Windows == 0))))
+		((ptcp_hdr)Buffer)->Acknowledge == 0 && ((ptcp_hdr)Buffer)->Windows == 0))))
 			return true;
 
 	return false;
@@ -969,7 +972,8 @@ ClearOutputPacketListData:
 	{
 		return true;
 	}
-	else if (!GlobalRunningStatus.LocalListeningSocket->empty()) //Check global sockets.
+//Check global sockets.
+	else if (!GlobalRunningStatus.LocalListeningSocket->empty())
 	{
 		for (const auto &SocketIter:*GlobalRunningStatus.LocalListeningSocket)
 		{
