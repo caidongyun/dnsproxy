@@ -133,8 +133,8 @@ void MonitorLauncher(
 
 //MailSlot and FIFO monitor
 #if defined(PLATFORM_WIN)
-	std::thread Flush_DNSMailSlotMonitorThread(std::bind(Flush_DNS_MailSlotMonitor));
-	Flush_DNSMailSlotMonitorThread.detach();
+	std::thread Flush_DNS_MailSlotMonitorThread(std::bind(Flush_DNS_MailSlotMonitor));
+	Flush_DNS_MailSlotMonitorThread.detach();
 #elif (defined(PLATFORM_LINUX) || defined(PLATFORM_MACOS))
 	std::thread Flush_DNS_FIFO_MonitorThread(std::bind(Flush_DNS_FIFO_Monitor));
 	Flush_DNS_FIFO_MonitorThread.detach();

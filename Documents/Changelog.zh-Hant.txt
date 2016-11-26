@@ -1,4 +1,24 @@
-﻿Pcap_DNSProxy 0.4.7.7-0.4.8.0 更新日誌(2016-11-23)：
+﻿Pcap_DNSProxy 0.4.8.1 更新日誌(2016-11-26)：
+
+* 修改多行注釋區域的標籤要求 [Monoremonton/wx0]
+* 修復記憶體對齊可能造成的性能問題 [Syrone Wong]
+* Release Hash:
+  * SHA-3(256):
+    * Windows/Pcap_DNSProxy.exe: 
+    * Windows/Pcap_DNSProxy_x86.exe: 
+    * Windows/Pcap_DNSProxy_XP.exe: 
+    * macOS/Pcap_DNSProxy: 
+  * SHA-2(256):
+    * Windows/Pcap_DNSProxy.exe: 
+    * Windows/Pcap_DNSProxy_x86.exe: 
+    * Windows/Pcap_DNSProxy_XP.exe: 
+    * macOS/Pcap_DNSProxy: 
+
+
+-------------------------------------------------------------------------------
+
+
+Pcap_DNSProxy 0.4.7.7-0.4.8.0 更新日誌(2016-11-23)：
 
 * 添加 Include Guard Macros 的支援 [Syrone Wong]
 * 添加 Large Buffer Size 參數，用於指定大型資料緩衝區的固定長度
@@ -67,15 +87,15 @@
 * 提供 SHA-2(256)/SHA256 檔校驗值，淘汰 SHA-1 演算法
 * Release Hash:
   * SHA-3(256):
-    * Windows/Pcap_DNSProxy.exe: 
-    * Windows/Pcap_DNSProxy_x86.exe: 
-    * Windows/Pcap_DNSProxy_XP.exe: 
-    * macOS/Pcap_DNSProxy: 
+    * Windows/Pcap_DNSProxy.exe: 65F41F53AAAD9C18828216EC614D276ADE589CBF877B54D7FC7987C05806021D
+    * Windows/Pcap_DNSProxy_x86.exe: D84318648F8EFA3DC8667B002DA5211AC2598D6B28D99A95D2DECB84213E898D
+    * Windows/Pcap_DNSProxy_XP.exe: C35A23EC22DD3C0ABC0805E2AF7DE8457D7610EAA6E8E9ECAF2931C1C6E6EF96
+    * macOS/Pcap_DNSProxy: 7E26203D5F0388ED5D396D2C665FE50E44725BF85CAA6C41088D9A060E5B40E2
   * SHA-2(256):
-    * Windows/Pcap_DNSProxy.exe: 
-    * Windows/Pcap_DNSProxy_x86.exe: 
-    * Windows/Pcap_DNSProxy_XP.exe: 
-    * macOS/Pcap_DNSProxy: 
+    * Windows/Pcap_DNSProxy.exe: 3626D21FD0674830F1D13776EB79626D79F653C65108041F8042CA4DDA62B299
+    * Windows/Pcap_DNSProxy_x86.exe: 76EC284B340FD7FFA585E8B9DA7E92F54F72AB3FFEA3F9DC1CEAE13B49005266
+    * Windows/Pcap_DNSProxy_XP.exe: C4744E588BEE4C15E3BD3B77F1A71E55F8B8C9677F43D6E8691D8B41885AF602
+    * macOS/Pcap_DNSProxy: 8C87587D30F6BB6BEE84F6AF07EA27AB77F110BF905CFFDD890ABAB10492F955
 
 
 -------------------------------------------------------------------------------

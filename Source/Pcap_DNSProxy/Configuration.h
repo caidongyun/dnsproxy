@@ -102,7 +102,7 @@ bool ReadPathAndFileName(
 	const size_t DataOffset, 
 	const bool Path, 
 	std::vector<std::wstring> * const ListData, 
-	std::vector<std::string> * const sListData, 
+	std::vector<std::string> * const MBS_ListData, 
 	const size_t FileIndex, const size_t Line);
 #endif
 bool ReadMultipleAddresses(
@@ -153,9 +153,9 @@ bool ReadDNSCurveMagicNumber(
 bool ReadIPFilterData(
 	std::string Data, 
 	const size_t FileIndex, 
+	const size_t Line, 
 	size_t &LabelType, 
-	bool * const IsStopLabel, 
-	const size_t Line);
+	bool &IsStopLabel);
 bool ReadBlacklistData(
 	std::string Data, 
 	const size_t FileIndex, 
@@ -180,9 +180,9 @@ bool ReadMainIPFilterData(
 bool ReadHostsData(
 	std::string Data, 
 	const size_t FileIndex, 
+	const size_t Line, 
 	size_t &LabelType, 
-	bool * const IsStopLabel, 
-	const size_t Line);
+	bool &IsStopLabel);
 bool ReadOtherHostsData(
 	std::string Data, 
 	const size_t FileIndex, 

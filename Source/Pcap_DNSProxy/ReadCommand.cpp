@@ -21,11 +21,11 @@
 
 //Read commands from main process
 #if defined(PLATFORM_WIN)
-bool ReadCommands(
+bool ReadCommand(
 	int argc, 
 	wchar_t *argv[])
 #elif (defined(PLATFORM_LINUX) || defined(PLATFORM_MACOS))
-bool ReadCommands(
+bool ReadCommand(
 	int argc, 
 	char *argv[])
 #endif
@@ -77,8 +77,16 @@ bool ReadCommands(
 	{
 		Commands = argv[Index];
 
+	//Case insensitive
+		#if defined(PLATFORM_WIN)
+			std::wstring InsensitiveString(Commands);
+		#elif (defined(PLATFORM_LINUX) || defined(PLATFORM_MACOS))
+			std::string InsensitiveString(Commands);
+		#endif
+		CaseConvert(InsensitiveString, false);
+
 	//Set working directory from commands.
-		if (Commands == COMMAND_LONG_SET_PATH || Commands == COMMAND_SHORT_SET_PATH)
+		if (InsensitiveString == COMMAND_LONG_SET_PATH || InsensitiveString == COMMAND_SHORT_SET_PATH)
 		{
 		//Commands check
 			if ((int)Index + 1 >= argc)
@@ -103,7 +111,7 @@ bool ReadCommands(
 			}
 		}
 	//Print help messages.
-		else if (Commands == COMMAND_LONG_HELP || Commands == COMMAND_SHORT_HELP)
+		else if (InsensitiveString == COMMAND_LONG_HELP || InsensitiveString == COMMAND_SHORT_HELP)
 		{
 			std::lock_guard<std::mutex> ScreenMutex(ScreenLock);
 			PrintToScreen(false, L"Pcap_DNSProxy ");
@@ -136,7 +144,7 @@ bool ReadCommands(
 			return false;
 		}
 	//Print current version.
-		else if (Commands == COMMAND_LONG_PRINT_VERSION || Commands == COMMAND_SHORT_PRINT_VERSION)
+		else if (InsensitiveString == COMMAND_LONG_PRINT_VERSION || InsensitiveString == COMMAND_SHORT_PRINT_VERSION)
 		{
 			std::lock_guard<std::mutex> ScreenMutex(ScreenLock);
 			PrintToScreen(false, L"Pcap_DNSProxy ");
@@ -146,7 +154,7 @@ bool ReadCommands(
 			return false;
 		}
 	//Flush DNS Cache from user.
-		else if (Commands == COMMAND_FLUSH_DNS)
+		else if (InsensitiveString == COMMAND_FLUSH_DNS)
 		{
 		//Remove single domain cache.
 			if (argc > 2)
@@ -179,15 +187,15 @@ bool ReadCommands(
 			return false;
 		}
 	//DNSCurve/DNSCrypt KeyPairGenerator
-		else if (Commands == COMMAND_KEYPAIR_GENERATOR)
+		else if (InsensitiveString == COMMAND_KEYPAIR_GENERATOR)
 		{
 		//File handle initialization
 		#if defined(ENABLE_LIBSODIUM)
 			FILE *FileHandle = nullptr;
 			#if defined(PLATFORM_WIN)
-				_wfopen_s(&FileHandle, L"KeyPair.txt", L"w+,ccs=UTF-8");
+				_wfopen_s(&FileHandle, DNSCURVE_KEY_PAIR_FILE_NAME, L"w+,ccs=UTF-8");
 			#elif (defined(PLATFORM_LINUX) || defined(PLATFORM_MACOS))
-				FileHandle = fopen("KeyPair.txt", "w+");
+				FileHandle = fopen(DNSCURVE_KEY_PAIR_FILE_NAME, "w+");
 			#endif
 
 		//Print keypair to file.
@@ -258,7 +266,7 @@ bool ReadCommands(
 			return false;
 		}
 	//Print library version.
-		else if (Commands == COMMAND_LIB_VERSION)
+		else if (InsensitiveString == COMMAND_LIB_VERSION)
 		{
 		#if (defined(ENABLE_LIBSODIUM) || defined(ENABLE_PCAP) || defined(ENABLE_TLS))
 			std::wstring LibVersion;
@@ -300,13 +308,13 @@ bool ReadCommands(
 		}
 	#if defined(PLATFORM_LINUX)
 	//Set system daemon.
-		else if (Commands == COMMAND_DISABLE_DAEMON)
+		else if (InsensitiveString == COMMAND_DISABLE_DAEMON)
 		{
 			GlobalRunningStatus.IsDaemon = false;
 		}
 	#elif defined(PLATFORM_WIN)
 	//Windows Firewall Test in first start.
-		else if (Commands == COMMAND_FIREWALL_TEST)
+		else if (InsensitiveString == COMMAND_FIREWALL_TEST)
 		{
 			ssize_t ErrorCode = 0;
 			if (!FirewallTest(AF_INET6, ErrorCode) && !FirewallTest(AF_INET, ErrorCode))
@@ -354,9 +362,9 @@ bool FileNameInit(
 		}
 	}
 #elif (defined(PLATFORM_LINUX) || defined(PLATFORM_MACOS))
-	GlobalRunningStatus.sPath_Global->clear();
-	GlobalRunningStatus.sPath_Global->push_back(OriginalPath);
-	GlobalRunningStatus.sPath_Global->front().append("/");
+	GlobalRunningStatus.MBS_Path_Global->clear();
+	GlobalRunningStatus.MBS_Path_Global->push_back(OriginalPath);
+	GlobalRunningStatus.MBS_Path_Global->front().append("/");
 	std::wstring StringTemp;
 	if (!MBS_To_WCS_String((const uint8_t *)OriginalPath, PATH_MAX + 1U, StringTemp))
 		return false;
@@ -373,9 +381,9 @@ bool FileNameInit(
 #if defined(PLATFORM_WIN)
 	GlobalRunningStatus.IsConsole = true;
 #elif (defined(PLATFORM_LINUX) || defined(PLATFORM_MACOS))
-	GlobalRunningStatus.sPath_ErrorLog->clear();
-	*GlobalRunningStatus.sPath_ErrorLog = GlobalRunningStatus.sPath_Global->front();
-	GlobalRunningStatus.sPath_ErrorLog->append(ERROR_LOG_FILE_NAME_STRING);
+	GlobalRunningStatus.MBS_Path_ErrorLog->clear();
+	*GlobalRunningStatus.MBS_Path_ErrorLog = GlobalRunningStatus.MBS_Path_Global->front();
+	GlobalRunningStatus.MBS_Path_ErrorLog->append(ERROR_LOG_FILE_NAME_MBS);
 #endif
 	GlobalRunningStatus.StartupTime = time(nullptr);
 

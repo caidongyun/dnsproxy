@@ -593,6 +593,10 @@
 		#define TCP_FASTOPEN_HINT      5
 	#endif
 
+//Memory alignment: 1 bytes
+	#pragma pack(push)
+	#pragma pack(1)
+
 //Internet Protocol version 4/IPv4 Address
 	typedef struct _in_addr_windows_
 	{
@@ -656,6 +660,9 @@
 		uint32_t           sin6_scope_id;      //Scope ID (new in 2.4)
 	}sockaddr_in6_Windows;
 
+//Reset original alignment.
+	#pragma pack(pop)
+
 //Linux and macOS compatible definitions(Part 2)
 	#define FALSE                    0
 	#define INVALID_SOCKET           (-1)
@@ -698,7 +705,4 @@
 	#define strncpy_s(Dst, DstSize, Src, Size)                           strncpy(Dst, Src, Size)
 	#define wcsncpy_s(Dst, DstSize, Src, Size)                           wcsncpy(Dst, Src, Size)
 #endif
-
-//Memory alignment: 1 bytes = 8 bits
-#pragma pack(1)
 #endif

@@ -342,11 +342,11 @@ bool ReadText(
 					{
 						case READ_TEXT_HOSTS: //ReadHosts
 						{
-							ReadHostsData(TextData, FileIndex, LabelType, &IsStopLabel, Line);
+							ReadHostsData(TextData, FileIndex, Line, LabelType, IsStopLabel);
 						}break;
 						case READ_TEXT_IPFILTER: //ReadIPFilter
 						{
-							ReadIPFilterData(TextData, FileIndex, LabelType, &IsStopLabel, Line);
+							ReadIPFilterData(TextData, FileIndex, Line, LabelType, IsStopLabel);
 						}break;
 						case READ_TEXT_PARAMETER: //ReadParameter
 						{
@@ -398,8 +398,8 @@ bool ReadParameter(
 			ConfigFileTemp.FileName = GlobalRunningStatus.Path_Global->front();
 			ConfigFileTemp.FileName.append(ConfigFileNameList[FileIndex]);
 		#if (defined(PLATFORM_LINUX) || defined(PLATFORM_MACOS))
-			ConfigFileTemp.sFileName = GlobalRunningStatus.sPath_Global->front();
-			ConfigFileTemp.sFileName.append(sConfigFileNameList[FileIndex]);
+			ConfigFileTemp.MBS_FileName = GlobalRunningStatus.MBS_Path_Global->front();
+			ConfigFileTemp.MBS_FileName.append(sConfigFileNameList[FileIndex]);
 		#endif
 			ConfigFileTemp.ModificationTime = 0;
 
@@ -426,7 +426,7 @@ bool ReadParameter(
 		#if defined(PLATFORM_WIN)
 			if (_wfopen_s(&FileHandle, FileList_Config.at(FileIndex).FileName.c_str(), L"rb") != 0 || FileHandle == nullptr)
 		#elif (defined(PLATFORM_LINUX) || defined(PLATFORM_MACOS))
-			FileHandle = fopen(FileList_Config.at(FileIndex).sFileName.c_str(), "rb");
+			FileHandle = fopen(FileList_Config.at(FileIndex).MBS_FileName.c_str(), "rb");
 			if (FileHandle == nullptr)
 		#endif
 			{
@@ -462,7 +462,7 @@ bool ReadParameter(
 			}
 		}
 	#elif (defined(PLATFORM_LINUX) || defined(PLATFORM_MACOS))
-		if (stat(FileList_Config.at(FileIndex).sFileName.c_str(), &FileStatData) == 0 && FileStatData.st_size >= (off_t)FILE_READING_MAXSIZE)
+		if (stat(FileList_Config.at(FileIndex).MBS_FileName.c_str(), &FileStatData) == 0 && FileStatData.st_size >= (off_t)FILE_READING_MAXSIZE)
 		{
 			PrintError(LOG_LEVEL_3, LOG_ERROR_PARAMETER, L"Configuration file is too large", 0, FileList_Config.at(FileIndex).FileName.c_str(), 0);
 			return false;
@@ -498,7 +498,7 @@ bool ReadParameter(
 			#if defined(PLATFORM_WIN)
 				if (_wfopen_s(&FileHandle, FileList_Config.at(FileIndex).FileName.c_str(), L"rb") != 0 || FileHandle == nullptr)
 			#elif (defined(PLATFORM_LINUX) || defined(PLATFORM_MACOS))
-				FileHandle = fopen(FileList_Config.at(FileIndex).sFileName.c_str(), "rb");
+				FileHandle = fopen(FileList_Config.at(FileIndex).MBS_FileName.c_str(), "rb");
 				if (FileHandle == nullptr)
 			#endif
 				{
@@ -541,7 +541,7 @@ bool ReadParameter(
 			{
 				memset(&FileAttributeData, 0, sizeof(FileAttributeData));
 		#elif (defined(PLATFORM_LINUX) || defined(PLATFORM_MACOS))
-			if (stat(FileList_Config.at(FileIndex).sFileName.c_str(), &FileStatData) != 0)
+			if (stat(FileList_Config.at(FileIndex).MBS_FileName.c_str(), &FileStatData) != 0)
 			{
 				memset(&FileStatData, 0, sizeof(FileStatData));
 		#endif
@@ -594,7 +594,7 @@ bool ReadParameter(
 					if (_wfopen_s(&FileHandle, FileList_Config.at(FileIndex).FileName.c_str(), L"rb") == 0)
 					{
 				#elif (defined(PLATFORM_LINUX) || defined(PLATFORM_MACOS))
-					FileHandle = fopen(FileList_Config.at(FileIndex).sFileName.c_str(), "rb");
+					FileHandle = fopen(FileList_Config.at(FileIndex).MBS_FileName.c_str(), "rb");
 				#endif
 						if (FileHandle == nullptr)
 						{
@@ -677,8 +677,8 @@ void ReadIPFilter(
 			FileDataTemp.FileName = GlobalRunningStatus.Path_Global->at(Index);
 			FileDataTemp.FileName.append(GlobalRunningStatus.FileList_IPFilter->at(FileIndex));
 		#if (defined(PLATFORM_LINUX) || defined(PLATFORM_MACOS))
-			FileDataTemp.sFileName = GlobalRunningStatus.sPath_Global->at(Index);
-			FileDataTemp.sFileName.append(GlobalRunningStatus.sFileList_IPFilter->at(FileIndex));
+			FileDataTemp.MBS_FileName = GlobalRunningStatus.MBS_Path_Global->at(Index);
+			FileDataTemp.MBS_FileName.append(GlobalRunningStatus.MBS_FileList_IPFilter->at(FileIndex));
 		#endif
 			FileDataTemp.ModificationTime = 0;
 
@@ -717,7 +717,7 @@ void ReadIPFilter(
 			{
 				memset(&FileAttributeData, 0, sizeof(FileAttributeData));
 		#elif (defined(PLATFORM_LINUX) || defined(PLATFORM_MACOS))
-			if (stat(FileList_IPFilter.at(FileIndex).sFileName.c_str(), &FileStatData) != 0)
+			if (stat(FileList_IPFilter.at(FileIndex).MBS_FileName.c_str(), &FileStatData) != 0)
 			{
 				memset(&FileStatData, 0, sizeof(FileStatData));
 		#endif
@@ -777,7 +777,7 @@ void ReadIPFilter(
 					if (_wfopen_s(&FileHandle, FileList_IPFilter.at(FileIndex).FileName.c_str(), L"rb") == 0)
 					{
 				#elif (defined(PLATFORM_LINUX) || defined(PLATFORM_MACOS))
-					FileHandle = fopen(FileList_IPFilter.at(FileIndex).sFileName.c_str(), "rb");
+					FileHandle = fopen(FileList_IPFilter.at(FileIndex).MBS_FileName.c_str(), "rb");
 				#endif
 						if (FileHandle == nullptr)
 						{
@@ -869,8 +869,8 @@ void ReadHosts(
 			FileDataTemp.FileName = GlobalRunningStatus.Path_Global->at(Index);
 			FileDataTemp.FileName.append(GlobalRunningStatus.FileList_Hosts->at(FileIndex));
 		#if (defined(PLATFORM_LINUX) || defined(PLATFORM_MACOS))
-			FileDataTemp.sFileName = GlobalRunningStatus.sPath_Global->at(Index);
-			FileDataTemp.sFileName.append(GlobalRunningStatus.sFileList_Hosts->at(FileIndex));
+			FileDataTemp.MBS_FileName = GlobalRunningStatus.MBS_Path_Global->at(Index);
+			FileDataTemp.MBS_FileName.append(GlobalRunningStatus.MBS_FileList_Hosts->at(FileIndex));
 		#endif
 			FileDataTemp.ModificationTime = 0;
 
@@ -909,7 +909,7 @@ void ReadHosts(
 			{
 				memset(&FileAttributeData, 0, sizeof(FileAttributeData));
 		#elif (defined(PLATFORM_LINUX) || defined(PLATFORM_MACOS))
-			if (stat(FileList_Hosts.at(FileIndex).sFileName.c_str(), &FileStatData) != 0)
+			if (stat(FileList_Hosts.at(FileIndex).MBS_FileName.c_str(), &FileStatData) != 0)
 			{
 				memset(&FileStatData, 0, sizeof(FileStatData));
 		#endif
@@ -969,7 +969,7 @@ void ReadHosts(
 					if (_wfopen_s(&FileHandle, FileList_Hosts.at(FileIndex).FileName.c_str(), L"rb") == 0)
 					{
 				#elif (defined(PLATFORM_LINUX) || defined(PLATFORM_MACOS))
-					FileHandle = fopen(FileList_Hosts.at(FileIndex).sFileName.c_str(), "rb");
+					FileHandle = fopen(FileList_Hosts.at(FileIndex).MBS_FileName.c_str(), "rb");
 				#endif
 						if (FileHandle == nullptr)
 						{

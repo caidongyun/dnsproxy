@@ -38,7 +38,7 @@ int main(
 	}
 	else {
 	//Read commands and configuration file, also launch all monitors.
-		if (!ReadCommands(argc, argv))
+		if (!ReadCommand(argc, argv))
 			return EXIT_SUCCESS;
 		else if (!ReadParameter(true))
 			return EXIT_FAILURE;

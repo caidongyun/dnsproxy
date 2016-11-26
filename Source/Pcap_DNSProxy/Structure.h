@@ -22,6 +22,10 @@
 
 #include "Platform.h"
 
+//Memory alignment: 1 bytes
+#pragma pack(push)
+#pragma pack(1)
+
 //////////////////////////////////////////////////
 // Protocol Header structures
 // 
@@ -2780,4 +2784,7 @@ typedef struct _tls_base_record_
 	uint16_t              Length;
 }tls_base_record, *ptls_base_record;
 #endif
+
+//Reset original alignment.
+#pragma pack(pop)
 #endif
