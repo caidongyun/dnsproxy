@@ -57,18 +57,23 @@ bool ReadHostsData(
 	CaseConvert(InsensitiveString, true);
 
 //[Local Hosts] block(A part)
-	if (LabelType == 0 && (Parameter.Target_Server_Local_Main_IPv4.Storage.ss_family > 0 || Parameter.Target_Server_Local_Main_IPv6.Storage.ss_family > 0))
+	if (LabelType == 0 && (Parameter.Target_Server_Local_Main_IPv4.Storage.ss_family != 0 || Parameter.Target_Server_Local_Main_IPv6.Storage.ss_family != 0))
 	{
 		std::wstring WCS_InsensitiveString(FileList_Hosts.at(FileIndex).FileName);
 		CaseConvert(WCS_InsensitiveString, true);
 		if (CompareStringReversed(L"WHITELIST.TXT", WCS_InsensitiveString.c_str()) || CompareStringReversed(L"WHITE_LIST.TXT", WCS_InsensitiveString.c_str()))
+		{
 			LabelType = LABEL_HOSTS_TYPE_LOCAL;
+			IsStopLabel = false;
+		}
 	}
 
 //[Address Hosts] block
 	if (InsensitiveString.find("[SOURCE HOSTS]") == 0)
 	{
 		LabelType = LABEL_HOSTS_TYPE_SOURCE;
+		IsStopLabel = false;
+
 		return true;
 	}
 
@@ -76,6 +81,8 @@ bool ReadHostsData(
 	else if (InsensitiveString.find("[HOSTS]") == 0)
 	{
 		LabelType = LABEL_HOSTS_TYPE_NORMAL;
+		IsStopLabel = false;
+
 		return true;
 	}
 
@@ -83,6 +90,8 @@ bool ReadHostsData(
 	else if (InsensitiveString.find("[LOCAL HOSTS]") == 0)
 	{
 		LabelType = LABEL_HOSTS_TYPE_LOCAL;
+		IsStopLabel = false;
+
 		return true;
 	}
 
@@ -90,6 +99,8 @@ bool ReadHostsData(
 	else if (InsensitiveString.find("[CNAME HOSTS]") == 0)
 	{
 		LabelType = LABEL_HOSTS_TYPE_CNAME;
+		IsStopLabel = false;
+
 		return true;
 	}
 
@@ -97,6 +108,8 @@ bool ReadHostsData(
 	else if (InsensitiveString.find("[ADDRESS HOSTS]") == 0)
 	{
 		LabelType = LABEL_HOSTS_TYPE_ADDRESS;
+		IsStopLabel = false;
+
 		return true;
 	}
 
@@ -371,7 +384,7 @@ bool ReadLocalHostsData(
 				ssize_t Result = 0;
 
 			//Convert address.
-				if (HostsListData.front().find(ASCII_COLON) != std::string::npos) //IPv6
+				if (HostsListData.front().find(ASCII_COLON) != std::string::npos && HostsListData.front().find(ASCII_PERIOD) == std::string::npos) //IPv6
 				{
 					if (!AddressStringToBinary(AF_INET6, (const uint8_t *)HostsListData.front().c_str(), &AddressUnionDataTemp.IPv6.sin6_addr, &Result))
 					{
@@ -382,7 +395,7 @@ bool ReadLocalHostsData(
 						AddressUnionDataTemp.Storage.ss_family = AF_INET6;
 					}
 				}
-				else if (HostsListData.front().find(ASCII_PERIOD) != std::string::npos) //IPv4
+				else if (HostsListData.front().find(ASCII_PERIOD) != std::string::npos && HostsListData.front().find(ASCII_COLON) == std::string::npos) //IPv4
 				{
 					if (!AddressStringToBinary(AF_INET, (const uint8_t *)HostsListData.front().c_str(), &AddressUnionDataTemp.IPv4.sin_addr, &Result))
 					{
@@ -491,7 +504,7 @@ bool ReadLocalHostsData(
 					ssize_t Result = 0;
 
 				//Convert address.
-					if (HostsListData.front().find(ASCII_COLON) != std::string::npos) //IPv6
+					if (HostsListData.front().find(ASCII_COLON) != std::string::npos && HostsListData.front().find(ASCII_PERIOD) == std::string::npos) //IPv6
 					{
 						if (!AddressStringToBinary(AF_INET6, (const uint8_t *)HostsListData.front().c_str(), &AddressUnionDataTemp.IPv6.sin6_addr, &Result))
 						{
@@ -502,7 +515,7 @@ bool ReadLocalHostsData(
 							AddressUnionDataTemp.Storage.ss_family = AF_INET6;
 						}
 					}
-					else if (HostsListData.front().find(ASCII_PERIOD) != std::string::npos) //IPv4
+					else if (HostsListData.front().find(ASCII_PERIOD) != std::string::npos && HostsListData.front().find(ASCII_COLON) == std::string::npos) //IPv4
 					{
 						if (!AddressStringToBinary(AF_INET, (const uint8_t *)HostsListData.front().c_str(), &AddressUnionDataTemp.IPv4.sin_addr, &Result))
 						{

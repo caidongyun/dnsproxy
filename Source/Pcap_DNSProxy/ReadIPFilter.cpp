@@ -51,18 +51,23 @@ bool ReadIPFilterData(
 	CaseConvert(InsensitiveString, true);
 
 //[Local Routing] block(A part)
-	if (LabelType == 0 && (Parameter.Target_Server_Local_Main_IPv4.Storage.ss_family > 0 || Parameter.Target_Server_Local_Main_IPv6.Storage.ss_family > 0))
+	if (LabelType == 0 && (Parameter.Target_Server_Local_Main_IPv4.Storage.ss_family != 0 || Parameter.Target_Server_Local_Main_IPv6.Storage.ss_family != 0))
 	{
 		std::wstring WCS_InsensitiveString(FileList_IPFilter.at(FileIndex).FileName);
 		CaseConvert(WCS_InsensitiveString, true);
 		if (CompareStringReversed(L"CHNROUTING.TXT", WCS_InsensitiveString.c_str()) || CompareStringReversed(L"CHNROUTE.TXT", WCS_InsensitiveString.c_str()))
+		{
 			LabelType = LABEL_IPFILTER_LOCAL_ROUTING;
+			IsStopLabel = false;
+		}
 	}
 
 //[IPFilter] block
 	if (InsensitiveString.find("[IPFILTER]") == 0)
 	{
 		LabelType = LABEL_IPFILTER;
+		IsStopLabel = false;
+
 		return true;
 	}
 
@@ -70,6 +75,8 @@ bool ReadIPFilterData(
 	else if (InsensitiveString.find("[BLACKLIST]") == 0)
 	{
 		LabelType = LABEL_IPFILTER_BLACKLIST;
+		IsStopLabel = false;
+
 		return true;
 	}
 
@@ -77,6 +84,8 @@ bool ReadIPFilterData(
 	else if (InsensitiveString.find("[LOCAL ROUTING]") == 0)
 	{
 		LabelType = LABEL_IPFILTER_LOCAL_ROUTING;
+		IsStopLabel = false;
+
 		return true;
 	}
 

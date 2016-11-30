@@ -136,7 +136,7 @@ void CaseConvert(
 	const bool IsLowerToUpper)
 {
 //Null pointer
-	if (Buffer == nullptr)
+	if (Buffer == nullptr || Length == 0)
 	{
 		return;
 	}
@@ -293,6 +293,8 @@ size_t Base64_Encode(
 	const size_t OutputSize)
 {
 //Initialization
+	if (Length == 0)
+		return 0;
 	size_t Index[]{0, 0, 0};
 	memset(Output, 0, OutputSize);
 
@@ -349,9 +351,11 @@ size_t Base64_Decode(
 	const size_t OutputSize)
 {
 //Initialization
-	memset(Output, 0, OutputSize);
+	if (Length == 0)
+		return 0;
 	size_t Index[]{0, 0, 0};
 	int StringIter = 0;
+	memset(Output, 0, OutputSize);
 
 //Convert from Base64 to binary.
 	for (Index[0] = Index[1U] = 0;Index[0] < Length;++Index[0])

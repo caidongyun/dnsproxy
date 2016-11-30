@@ -95,7 +95,7 @@ int main(
 		return EXIT_FAILURE;
 	}
 
-//Main process
+//Main process initialization
 	if (!MonitorInit())
 		return EXIT_FAILURE;
 #endif

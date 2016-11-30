@@ -1,7 +1,18 @@
-﻿Pcap_DNSProxy 0.4.8.1 更新日志(2016-11-26)：
+﻿Pcap_DNSProxy 0.4.8.1-0.4.8.2 更新日志(2016-11-30)：
 
+* 新增 Strict Resource Record TTL Filter 参数以支持 RFC 2181 标准所要求的资源记录 TTL 检查
+* 新增一组 Pcap Devices Blacklist 非必要抓包黑名单 (macOS)
+* 改进的 Domain Case Conversion 功能
+* 改进在启用手动版本选择时所指定使用的 Ciphers Suites (Linux/macOS)
 * 修改多行注释区域的标签要求 [Monoremonton/wx0]
 * 修复内存对齐可能造成的性能问题 [Syrone Wong]
+* 修复 Operation Mode 参数指定为 Proxy 和 Server 模式时工作不正常的问题 [Syrone Wong/wang20150419]
+* 修复预编译二进制版本无法正确运行的错误 (macOS) [fysly]
+* 修复多行注释区域无法通过其它非多行注释区域标签重置的问题
+* 修复 TCP 模式下 SOCKS Proxy 和 HTTP CONNECT Proxy 工作不正常的问题
+* 修复 Local Force Request 参数在启用 Local Main 或 Local Routing 功能时工作不正常的问题
+* 修复使用低于 OpenSSL 1.0.1 版本时指定过于严格的规则导致没有任何 Ciphers Suites 可用的问题 (Linux/macOS)
+* 修复内存对齐方式不一致可能导致的运行出错的问题 (Linux/macOS)
 * Release Hash:
   * SHA-3(256):
     * Windows/Pcap_DNSProxy.exe: 

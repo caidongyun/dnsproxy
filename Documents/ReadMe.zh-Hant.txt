@@ -245,7 +245,7 @@ https://sourceforge.net/projects/pcap-dnsproxy
     * 當相應協定的 Listen Address 生效時，相應協定的本參數將會被自動忽略
   * IPFilter Type - IPFilter 參數的類型：分為 Deny 禁止和 Permit 允許，對應 IPFilter 參數應用為黑名單或白名單
   * IPFilter Level - IPFilter 參數的過濾級別，級別越高過濾越嚴格，與 IPFilter 條目相對應：0 為不啟用過濾，如果留空則為 0
-  * Accept Type - 禁止或只允許所列 DNS 類型的請求：格式為 "Deny:DNS記錄的名稱或ID(|DNS記錄的名稱或ID)" 或 "Permit:DNS記錄的名稱或ID(|DNS記錄的名稱或ID)"（不含引號，括弧內為可選項目），所有可用的 DNS 類型清單：
+  * Accept Type - 禁止或只允許所列 DNS 類型的請求，格式為 "Deny:DNS記錄的名稱或ID(|DNS記錄的名稱或ID)" 或 "Permit:DNS記錄的名稱或ID(|DNS記錄的名稱或ID)"（不含引號，括弧內為可選項目），所有可用的 DNS 類型清單：
     * A/1
     * NS/2
     * MD/3
@@ -373,10 +373,10 @@ https://sourceforge.net/projects/pcap-dnsproxy
     * 本功能要求啟用 EDNS Label 參數
     * EDNS Client Subnet Relay 參數優先順序比此參數高，啟用後將優先添加 EDNS Client Subnet Relay 參數的 EDNS 子網位址
   * IPv4 Main DNS Address - IPv4 主要 DNS 伺服器位址：需要輸入一個帶埠格式的位址，留空為不啟用
-    * 支援多個位址
+    * 支援多個位址，注意填入後將強制啟用 Alternate Multiple Request 參數
     * 支援使用服務名稱代替埠號
   * IPv4 Alternate DNS Address - IPv4 備用 DNS 伺服器位址：需要輸入一個帶埠格式的位址，留空為不啟用
-    * 支援多個位址
+    * 支援多個位址，注意填入後將強制啟用 Alternate Multiple Request 參數
     * 支援使用服務名稱代替埠號
   * IPv4 Local Main DNS Address - IPv4 主要境內 DNS 伺服器位址，用於境內功能變數名稱解析：需要輸入一個帶埠格式的位址，留空為不啟用
     * 不支援多個位址，只能填入單個位址
@@ -391,10 +391,10 @@ https://sourceforge.net/projects/pcap-dnsproxy
     * 本功能要求啟用 EDNS Label 參數
     * EDNS Client Subnet Relay 參數優先順序比此參數高，啟用後將優先添加 EDNS Client Subnet Relay 參數的 EDNS 子網位址
   * IPv6 Main DNS Address - IPv6 主要 DNS 伺服器位址：需要輸入一個帶埠格式的位址，留空為不啟用
-    * 支援多個位址
+    * 支援多個位址，注意填入後將強制啟用 Alternate Multiple Request 參數
     * 支援使用服務名稱代替埠號
   * IPv6 Alternate DNS Address - IPv6 備用 DNS 伺服器位址：需要輸入一個帶埠格式的位址，留空為不啟用
-    * 支援多個位址
+    * 支援多個位址，注意填入後將強制啟用 Alternate Multiple Request 參數
     * 支援使用服務名稱代替埠號
   * IPv6 Local Main DNS Address - IPv6 主要境內 DNS 伺服器位址，用於境內功能變數名稱解析：需要輸入一個帶埠格式的位址，留空為不啟用
     * 不支援多個位址，只能填入單個位址
@@ -595,6 +595,7 @@ https://sourceforge.net/projects/pcap-dnsproxy
   * TCP Data Filter - TCP 資料包頭檢測：開啟為 1 /關閉為 0
   * DNS Data Filter - DNS 資料包頭檢測：開啟為 1 /關閉為 0
   * Blacklist Filter - 解析結果黑名單過濾：開啟為 1 /關閉為 0
+  * Strict Resource Record TTL Filter - 嚴格的資源記錄存留時間過濾，標準要求同一名稱和類型的資源記錄必須具有相同的存留時間：開啟為 1/關閉為 0
 
 * Data - 資料區域
   * ICMP ID - ICMP/Ping 資料包頭部 ID 的值：格式為 0x**** 的十六進位字元，如果留空則獲取執行緒的 ID 作為請求用 ID
@@ -669,7 +670,7 @@ https://sourceforge.net/projects/pcap-dnsproxy
   * DNSCurve Encryption - 啟用加密，DNSCurve 協定支援加密和非加密模式：開啟為 1 /關閉為 0
   * DNSCurve Encryption Only - 只使用加密模式，所有請求將只通過 DNCurve 加密模式進行：開啟為 1 /關閉為 0
     * 注意：使用 "只使用加密模式" 時必須提供伺服器的魔數和指紋用於請求和接收
-  * DNSCurve Client Ephemeral Key - 一次性用戶端金鑰組模式：每次請求解析均使用隨機生成的一次性用戶端金鑰組：開啟為 1 /關閉為 0
+  * DNSCurve Client Ephemeral Key - 一次性用戶端金鑰組模式，每次請求解析均使用隨機生成的一次性用戶端金鑰組，提供前向安全性：開啟為 1 /關閉為 0
   * DNSCurve Key Recheck Time - DNSCurve 協定 DNS 伺服器連接資訊檢查間隔：單位為秒，最小為 10
 
 * DNSCurve Addresses - DNSCurve 協定位址區域
@@ -979,6 +980,7 @@ IPFilter 設定檔分為 Blacklist/黑名單區域 和 IPFilter/位址過濾區�
 * IPv4 Data Filter
 * TCP Data Filter
 * DNS Data Filter
+* Strict Resource Record TTL Filter
 * SOCKS Target Server
 * SOCKS Username
 * SOCKS Password

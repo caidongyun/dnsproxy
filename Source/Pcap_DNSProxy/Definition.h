@@ -107,9 +107,9 @@
 #define UNICODE_IDEOGRAPHIC_SPACE                     0x3000                      //Ideographic Space in CJK
 
 //Version definitions
-#define CONFIG_VERSION                                0.45                                  //Current configuration file version
+#define CONFIG_FILE_VERSION                           0.45                                  //Current configuration file version
 #define COPYRIGHT_MESSAGE                             L"Copyright (C) 2012-2016 Chengr28"   //Copyright message
-#define FULL_VERSION                                  L"0.4.8.0"                            //Current full version
+#define FULL_VERSION                                  L"0.4.8.2"                            //Current full version
 
 //Size and length definitions(Number)
 #define ADDRESS_STRING_MAXSIZE                        64U                         //Maximum size of addresses(IPv4/IPv6) words(64 bytes)
@@ -123,9 +123,11 @@
 #define DEFAULT_THREAD_POOL_MAXNUM                    256U                        //Default number of maximum thread pool size
 #define DNS_RR_MAXCOUNT_AAAA                          43U                         //Maximum Record Resources size of AAAA answers, 28 bytes * 43 = 1204 bytes
 #define DNS_RR_MAXCOUNT_A                             75U                         //Maximum Record Resources size of A answers, 16 bytes * 75 = 1200 bytes
-#define DNSCRYPT_KEYPAIR_MESSAGE_LEN                  80U                         //DNSCurve/DNScrypt keypair messages length
-#define DNSCRYPT_KEYPAIR_INTERVAL                     4U                          //DNSCurve/DNScrypt keypair interval length
-#define DNSCRYPT_RECORD_TXT_LEN                       124U                        //Length of DNScrypt TXT Records
+#if defined(ENABLE_LIBSODIUM)
+	#define DNSCRYPT_KEYPAIR_MESSAGE_LEN                  80U                         //DNSCurve/DNScrypt keypair messages length
+	#define DNSCRYPT_KEYPAIR_INTERVAL                     4U                          //DNSCurve/DNScrypt keypair interval length
+	#define DNSCRYPT_RECORD_TXT_LEN                       124U                        //Length of DNScrypt TXT Records
+#endif
 #define DOMAIN_DATA_MAXSIZE                           253U                        //Maximum data length of whole level domain is 253 bytes(Section 2.3.1 in RFC 1035).
 #define DOMAIN_LEVEL_DATA_MAXSIZE                     63U                         //Domain length is between 3 and 63(Labels must be 63 characters/bytes or less, Section 2.3.1 in RFC 1035).
 #define DOMAIN_MAXSIZE                                256U                        //Maximum size of whole level domain is 256 bytes(Section 2.3.1 in RFC 1035).
@@ -140,8 +142,8 @@
 	#define ICMP_PADDING_LENGTH_LINUX                     40U
 	#define ICMP_STRING_START_NUM_LINUX                   16U
 #elif defined(PLATFORM_MACOS)
-	#define ICMP_PADDING_LENGTH_MAC                       48U
-	#define ICMP_STRING_START_NUM_MAC                     8U
+	#define ICMP_PADDING_LENGTH_MACOS                     48U
+	#define ICMP_STRING_START_NUM_MACOS                   8U
 #endif
 #define IPV4_SHORTEST_ADDRSTRING                      6U                          //The shortest IPv4 address strings(*.*.*.*).
 #define IPV6_SHORTEST_ADDRSTRING                      3U                          //The shortest IPv6 address strings(::).
@@ -164,10 +166,12 @@
 #define EDNS_ADDITIONAL_MAXSIZE                       (sizeof(dns_record_opt) * 2U + sizeof(edns_client_subnet) + sizeof(in6_addr))            //Maximum of EDNS Additional Record Resources size
 #define HTTP_TOP_HEADER_LENGTH                        (strlen("HTTP/"))
 #define HTTP_RESPONSE_MINSIZE                         (HTTP_TOP_HEADER_LENGTH + HTTP_VERSION_LENGTH + strlen(" ") + HTTP_STATUS_CODE_LENGTH)   //Minimum size of HTTP server response
-#define DNSCRYPT_BUFFER_RESERVE_LEN                   (DNSCURVE_MAGIC_QUERY_LEN + crypto_box_PUBLICKEYBYTES + crypto_box_HALF_NONCEBYTES - crypto_box_BOXZEROBYTES)
-#define DNSCRYPT_BUFFER_RESERVE_TCP_LEN               (sizeof(uint16_t) + DNSCURVE_MAGIC_QUERY_LEN + crypto_box_PUBLICKEYBYTES + crypto_box_HALF_NONCEBYTES - crypto_box_BOXZEROBYTES)
-#define DNSCRYPT_PACKET_MINSIZE                       (DNSCURVE_MAGIC_QUERY_LEN + crypto_box_NONCEBYTES + DNS_PACKET_MINSIZE)
-#define DNSCRYPT_RESERVE_HEADER_LEN                   (sizeof(ipv6_hdr) + sizeof(udp_hdr) + DNSCRYPT_BUFFER_RESERVE_LEN)
+#if defined(ENABLE_LIBSODIUM)
+	#define DNSCRYPT_BUFFER_RESERVE_LEN                   (DNSCURVE_MAGIC_QUERY_LEN + crypto_box_PUBLICKEYBYTES + crypto_box_HALF_NONCEBYTES - crypto_box_BOXZEROBYTES)
+	#define DNSCRYPT_BUFFER_RESERVE_TCP_LEN               (sizeof(uint16_t) + DNSCURVE_MAGIC_QUERY_LEN + crypto_box_PUBLICKEYBYTES + crypto_box_HALF_NONCEBYTES - crypto_box_BOXZEROBYTES)
+	#define DNSCRYPT_PACKET_MINSIZE                       (DNSCURVE_MAGIC_QUERY_LEN + crypto_box_NONCEBYTES + DNS_PACKET_MINSIZE)
+	#define DNSCRYPT_RESERVE_HEADER_LEN                   (sizeof(ipv6_hdr) + sizeof(udp_hdr) + DNSCRYPT_BUFFER_RESERVE_LEN)
+#endif
 
 //Code definitions
 #define CHECKSUM_SUCCESS                              0                           //Result of getting correct checksum.
@@ -188,7 +192,7 @@
 #define DEFAULT_ALTERNATE_RESET_TIME                  180U                        //Default time to reset switching of alternate servers(180 seconds/2 minutes)
 #define DEFAULT_ALTERNATE_TIMES                       5U                          //Default times of request timeout(5 times)
 #define DEFAULT_DOMAIN_TEST_INTERVAL_TIME             900U                        //Default Domain Test time between every sending(900 seconds/15 minutes)
-#define DEFAULT_FILEREFRESH_TIME                      15000U                      //Default time between files auto-refreshing(15000 ms/15 seconds)
+#define DEFAULT_FILE_REFRESH_TIME                     15000U                      //Default time between files auto-refreshing(15000 ms/15 seconds)
 #define DEFAULT_HOSTS_TTL                             900U                        //Default Hosts DNS TTL(900 seconds/15 minutes)
 #define DEFAULT_ICMP_TEST_TIME                        900U                        //Default time between ICMP Test(900 seconds/15 minutes)
 #if defined(ENABLE_PCAP)
@@ -223,7 +227,9 @@
 #define SHORTEST_THREAD_POOL_RESET_TIME               5U                          //The shortset time to reset thread pool number(5 seconds)
 #define SOCKET_MIN_TIMEOUT                            500U                        //The shortest socket timeout(500 ms)
 #define STANDARD_TIMEOUT                              1000U                       //Standard timeout(1000 ms/1 second)
-#define UPDATE_SERVICE_TIME                           3000U                       //Update service timeout(3 seconds/3000 ms)
+#if defined(PLATFORM_WIN)
+	#define UPDATE_SERVICE_TIME                           3000U                       //Update service timeout(3 seconds/3000 ms)
+#endif
 
 //Data definitions
 #if defined(PLATFORM_WIN)
@@ -273,7 +279,7 @@
 	#define FIFO_PATH_NAME                                ("/tmp/pcap_dnsproxy_fifo")                  //FIFO pathname
 #endif
 #define DEFAULT_HTTP_CONNECT_VERSION                  ("1.1")                                      //Default HTTP CONNECT version
-#define DEFAULT_LOCAL_SERVERNAME                      ("pcap-dnsproxy.server")                     //Default Local DNS server name
+#define DEFAULT_LOCAL_SERVER_NAME                     ("pcap-dnsproxy.server")                     //Default Local DNS server name
 #if defined(PLATFORM_MACOS)
 	#define DEFAULT_SEQUENCE                               0
 #else
@@ -294,7 +300,7 @@
 #define ADDRESS_COMPARE_LESS                          1U
 #define ADDRESS_COMPARE_EQUAL                         2U
 #define ADDRESS_COMPARE_GREATER                       3U
-#define READ_TEXT_PARAMETER                           0
+#define READ_TEXT_PARAMETER_NORMAL                    0
 #define READ_TEXT_PARAMETER_MONITOR                   1U
 #define READ_TEXT_HOSTS                               2U
 #define READ_TEXT_IPFILTER                            3U
@@ -392,8 +398,10 @@
 #define REQUEST_PROCESS_SOCKS_MAIN                    2U
 #define REQUEST_PROCESS_HTTP_CONNECT                  3U
 #define REQUEST_PROCESS_DIRECT                        4U
-#define REQUEST_PROCESS_DNSCURVE_MAIN                 5U
-#define REQUEST_PROCESS_DNSCURVE_SIGN                 6U
+#if defined(ENABLE_LIBSODIUM)
+	#define REQUEST_PROCESS_DNSCURVE_MAIN                 5U
+	#define REQUEST_PROCESS_DNSCURVE_SIGN                 6U
+#endif
 #define REQUEST_PROCESS_TCP                           7U
 #define REQUEST_PROCESS_UDP_NORMAL                    8U
 #define REQUEST_PROCESS_UDP_NO_MARKING                9U
@@ -430,7 +438,8 @@
 		#define OPENSSL_VERSION_1_0_2                     0x10002000L
 		#define OPENSSL_VERSION_1_1_0                     0x10100000L
 		#define OPENSSL_STATIC_BUFFER_SIZE                256U
-		#define OPENSSL_STRONG_CIPHER_LIST                ("HIGH:!SSLv2:!SSLv3:!aNULL:!kRSA:!PSK:!SRP:!MD5:!RC4")
+		#define OPENSSL_CIPHER_LIST_COMPATIBILITY         ("HIGH:!SSLv2:!aNULL:!kRSA:!PSK:!SRP:!MD5:!RC4")
+		#define OPENSSL_CIPHER_LIST_STRONG                ("HIGH:!SSLv2:!SSLv3:!aNULL:!kRSA:!PSK:!SRP:!MD5:!RC4")
 	#endif
 #endif
 
@@ -496,11 +505,13 @@ typedef union _address_union_data_
 }AddressUnionData, ADDRESS_UNION_DATA, *PAddressUnionData, *PADDRESS_UNION_DATA;
 
 //Hop Limit and TTL Data structure
+#if defined(ENABLE_PCAP)
 typedef union _hoplimit_data_
 {
 	uint8_t                              TTL;
 	uint8_t                              HopLimit;
 }HopLimitUnionData, HOP_LIMIT_UNION_DATA, *PHopLimitUnionData, *PHOP_LIMIT_UNION_DATA;
+#endif
 
 //DNS Server Data structure
 typedef struct _dns_server_data_
@@ -547,7 +558,8 @@ typedef struct _dns_packet_data_
 	size_t                               BufferSize;
 	size_t                               Length;
 	uint16_t                             Protocol;
-	bool                                 IsLocal;
+	bool                                 IsLocalRequest;
+	bool                                 IsLocalForce;
 	ADDRESS_UNION_DATA                   LocalTarget;
 }DNSPacketData, DNS_PACKET_DATA, *PDNSPacketData, *PDNS_PACKET_DATA;
 
@@ -695,7 +707,9 @@ public:
 	bool                                 EDNS_Switch_SOCKS;
 	bool                                 EDNS_Switch_HTTP_CONNECT;
 	bool                                 EDNS_Switch_Direct;
+#if defined(ENABLE_LIBSODIUM)
 	bool                                 EDNS_Switch_DNSCurve;
+#endif
 	bool                                 EDNS_Switch_TCP;
 	bool                                 EDNS_Switch_UDP;
 	bool                                 EDNS_ClientSubnet_Relay;
@@ -710,6 +724,7 @@ public:
 #endif
 	bool                                 HeaderCheck_DNS;
 	bool                                 DataCheck_Blacklist;
+	bool                                 DataCheck_Strict_RR_TTL;
 //[Data] block
 #if defined(ENABLE_PCAP)
 	uint16_t                             ICMP_ID;
@@ -809,7 +824,7 @@ public:
 	std::atomic<size_t>                  *ThreadRunningNum;
 	std::atomic<size_t>                  *ThreadRunningFreeNum;
 
-//Path and file status
+//Path list and file list status
 	std::vector<std::wstring>            *Path_Global;
 	std::wstring                         *Path_ErrorLog;
 	std::vector<std::wstring>            *FileList_Hosts;

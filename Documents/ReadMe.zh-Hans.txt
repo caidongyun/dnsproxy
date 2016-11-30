@@ -238,7 +238,7 @@ https://sourceforge.net/projects/pcap-dnsproxy
     * 当相应协议的 Listen Address 生效时，相应协议的本参数将会被自动忽略
   * IPFilter Type - IPFilter 参数的类型：分为 Deny 禁止和 Permit 允许，对应 IPFilter 参数应用为黑名单或白名单
   * IPFilter Level - IPFilter 参数的过滤级别，级别越高过滤越严格，与 IPFilter 条目相对应：0 为不启用过滤，如果留空则为 0
-  * Accept Type - 禁止或只允许所列 DNS 类型的请求：格式为 "Deny:DNS记录的名称或ID(|DNS记录的名称或ID)" 或 "Permit:DNS记录的名称或ID(|DNS记录的名称或ID)"（不含引号，括号内为可选项目），所有可用的 DNS 类型列表：
+  * Accept Type - 禁止或只允许所列 DNS 类型的请求，格式为 "Deny:DNS记录的名称或ID(|DNS记录的名称或ID)" 或 "Permit:DNS记录的名称或ID(|DNS记录的名称或ID)"（不含引号，括号内为可选项目），所有可用的 DNS 类型列表：
     * A/1
     * NS/2
     * MD/3
@@ -366,10 +366,10 @@ https://sourceforge.net/projects/pcap-dnsproxy
     * 本功能要求启用 EDNS Label 参数
     * EDNS Client Subnet Relay 参数优先级比此参数高，启用后将优先添加 EDNS Client Subnet Relay 参数的 EDNS 子网地址
   * IPv4 Main DNS Address - IPv4 主要 DNS 服务器地址：需要输入一个带端口格式的地址，留空为不启用
-    * 支持多个地址
+    * 支持多个地址，注意填入后将强制启用 Alternate Multiple Request 参数
     * 支持使用服务名称代替端口号
   * IPv4 Alternate DNS Address - IPv4 备用 DNS 服务器地址：需要输入一个带端口格式的地址，留空为不启用
-    * 支持多个地址
+    * 支持多个地址，注意填入后将强制启用 Alternate Multiple Request 参数
     * 支持使用服务名称代替端口号
   * IPv4 Main Local DNS Address - IPv4 主要境内 DNS 服务器地址，用于境内域名解析：需要输入一个带端口格式的地址，留空为不启用
     * 不支持多个地址，只能填入单个地址
@@ -384,10 +384,10 @@ https://sourceforge.net/projects/pcap-dnsproxy
     * 本功能要求启用 EDNS Label 参数
     * EDNS Client Subnet Relay 参数优先级比此参数高，启用后将优先添加 EDNS Client Subnet Relay 参数的 EDNS 子网地址
   * IPv6 Main DNS Address - IPv6 主要 DNS 服务器地址：需要输入一个带端口格式的地址，留空为不启用
-    * 支持多个地址
+    * 支持多个地址，注意填入后将强制启用 Alternate Multiple Request 参数
     * 支持使用服务名称代替端口号
   * IPv6 Alternate DNS Address - IPv6 备用 DNS 服务器地址：需要输入一个带端口格式的地址，留空为不启用
-    * 支持多个地址
+    * 支持多个地址，注意填入后将强制启用 Alternate Multiple Request 参数
     * 支持使用服务名称代替端口号
   * IPv6 Local Main DNS Address - IPv6 主要境内 DNS 服务器地址，用于境内域名解析：需要输入一个带端口格式的地址，留空为不启用
     * 不支持多个地址，只能填入单个地址
@@ -588,6 +588,7 @@ https://sourceforge.net/projects/pcap-dnsproxy
   * TCP Data Filter - TCP 数据包头检测：开启为 1 /关闭为 0
   * DNS Data Filter - DNS 数据包头检测：开启为 1 /关闭为 0
   * Blacklist Filter - 解析结果黑名单过滤：开启为 1 /关闭为 0
+  * Strict Resource Record TTL Filter - 严格的资源记录生存时间过滤，标准要求同一名称和类型的资源记录必须具有相同的生存时间：开启为 1/关闭为 0
   
 * Data - 数据区域
   * ICMP ID - ICMP/Ping 数据包头部 ID 的值：格式为 0x**** 的十六进制字符，如果留空则获取线程的 ID 作为请求用 ID
@@ -662,7 +663,7 @@ https://sourceforge.net/projects/pcap-dnsproxy
   * DNSCurve Encryption - 启用加密，DNSCurve 协议支持加密和非加密模式：开启为 1 /关闭为 0
   * DNSCurve Encryption Only - 只使用加密模式，所有请求将只通过 DNCurve 加密模式进行：开启为 1 /关闭为 0
     * 注意：使用 "只使用加密模式" 时必须提供服务器的魔数和指纹用于请求和接收
-  * DNSCurve Client Ephemeral Key - 一次性客户端密钥对模式：每次请求解析均使用随机生成的一次性客户端密钥对：开启为 1 /关闭为 0
+  * DNSCurve Client Ephemeral Key - 一次性客户端密钥对模式，每次请求解析均使用随机生成的一次性客户端密钥对，提供前向安全性：开启为 1 /关闭为 0
   * DNSCurve Key Recheck Time - DNSCurve 协议 DNS 服务器连接信息检查间隔：单位为秒，最小为 10
 
 * DNSCurve Addresses - DNSCurve 协议地址区域
@@ -972,6 +973,7 @@ IPFilter 配置文件分为 Blacklist/黑名单区域 和 IPFilter/地址过滤�
 * IPv4 Data Filter
 * TCP Data Filter
 * DNS Data Filter
+* Strict Resource Record TTL Filter
 * SOCKS Target Server
 * SOCKS Username
 * SOCKS Password

@@ -20,7 +20,7 @@
 #include "Configuration.h"
 
 //Global variables
-size_t HopLimitIndex[]{0, 0};
+size_t ParameterHopLimitIndex[]{0, 0};
 
 //Read texts
 bool ReadText(
@@ -29,10 +29,10 @@ bool ReadText(
 	const size_t FileIndex)
 {
 //Reset global variables.
-	if (InputType == READ_TEXT_PARAMETER || InputType == READ_TEXT_PARAMETER_MONITOR)
+	if (InputType == READ_TEXT_PARAMETER_NORMAL || InputType == READ_TEXT_PARAMETER_MONITOR)
 	{
-		HopLimitIndex[NETWORK_LAYER_IPV6] = 0;
-		HopLimitIndex[NETWORK_LAYER_IPV4] = 0;
+		ParameterHopLimitIndex[NETWORK_LAYER_IPV6] = 0;
+		ParameterHopLimitIndex[NETWORK_LAYER_IPV4] = 0;
 	}
 
 //Initialization
@@ -41,7 +41,7 @@ bool ReadText(
 	memset(TextBuffer.get(), 0, FILE_BUFFER_SIZE);
 	std::string TextData;
 	size_t Encoding = 0, Index = 0, Line = 0, LabelType = 0;
-	auto IsEraseBOM = true, NewLine_Point = false, IsStopLabel = false;
+	auto IsEraseBOM = true, NewLinePoint = false, IsStopLabel = false;
 
 //Read data.
 	while (!feof((FILE *)FileHandle))
@@ -270,7 +270,7 @@ bool ReadText(
 				{
 					PrintError(LOG_LEVEL_2, LOG_ERROR_PARAMETER, L"Text encoding error", 0, FileList_IPFilter.at(FileIndex).FileName.c_str(), 0);
 				}break;
-				case READ_TEXT_PARAMETER: //ReadParameter
+				case READ_TEXT_PARAMETER_NORMAL: //ReadParameter
 				{
 					PrintError(LOG_LEVEL_2, LOG_ERROR_PARAMETER, L"Text encoding error", 0, FileList_Config.at(FileIndex).FileName.c_str(), 0);
 				}break;
@@ -291,15 +291,15 @@ bool ReadText(
 				TextBuffer.get()[strnlen_s((const char *)TextBuffer.get(), FILE_BUFFER_SIZE)] = FileBuffer.get()[Index];
 
 			//Mark next line format.
-				if (!NewLine_Point && FileBuffer.get()[Index] == ASCII_LF)
-					NewLine_Point = true;
+				if (!NewLinePoint && FileBuffer.get()[Index] == ASCII_LF)
+					NewLinePoint = true;
 			}
 		}
 
 		memset(FileBuffer.get(), 0, FILE_BUFFER_SIZE);
 
 	//Line length check
-		if (!NewLine_Point && ReadLength == FILE_BUFFER_SIZE)
+		if (!NewLinePoint && ReadLength == FILE_BUFFER_SIZE)
 		{
 			switch (InputType)
 			{
@@ -311,7 +311,7 @@ bool ReadText(
 				{
 					PrintError(LOG_LEVEL_2, LOG_ERROR_IPFILTER, L"Data of a line is too long", 0, FileList_IPFilter.at(FileIndex).FileName.c_str(), Line);
 				}break;
-				case READ_TEXT_PARAMETER: //ReadParameter
+				case READ_TEXT_PARAMETER_NORMAL: //ReadParameter
 				{
 					PrintError(LOG_LEVEL_2, LOG_ERROR_PARAMETER, L"Data of a line is too long", 0, FileList_Config.at(FileIndex).FileName.c_str(), Line);
 				}break;
@@ -324,7 +324,7 @@ bool ReadText(
 			return false;
 		}
 		else {
-			NewLine_Point = false;
+			NewLinePoint = false;
 		}
 
 	//Read data.
@@ -348,7 +348,7 @@ bool ReadText(
 						{
 							ReadIPFilterData(TextData, FileIndex, Line, LabelType, IsStopLabel);
 						}break;
-						case READ_TEXT_PARAMETER: //ReadParameter
+						case READ_TEXT_PARAMETER_NORMAL: //ReadParameter
 						{
 							if (!ReadParameterData(TextData, FileIndex, true, Line))
 								return false;
@@ -472,7 +472,7 @@ bool ReadParameter(
 	//Read data.
 		if (FileHandle != nullptr)
 		{
-			if (!ReadText(FileHandle, READ_TEXT_PARAMETER, FileIndex))
+			if (!ReadText(FileHandle, READ_TEXT_PARAMETER_NORMAL, FileIndex))
 			{
 				fclose(FileHandle);
 				return false;
@@ -486,7 +486,7 @@ bool ReadParameter(
 		}
 
 	//Check parameter list and set default values.
-		return ParameterCheckAndSetting(true, FileIndex);
+		return Parameter_CheckSetting(true, FileIndex);
 	}
 //Monitor mode
 	else {
@@ -608,7 +608,7 @@ bool ReadParameter(
 								if (ReadText(FileHandle, READ_TEXT_PARAMETER_MONITOR, FileIndex))
 								{
 								//Copy to global list.
-									if (ParameterCheckAndSetting(false, FileIndex))
+									if (Parameter_CheckSetting(false, FileIndex))
 									{
 										ParameterModificating.MonitorItemToUsing(&Parameter);
 									#if defined(ENABLE_LIBSODIUM)
@@ -1108,6 +1108,8 @@ void GetParameterListData(
 			else {
 				if (IsCaseConvert)
 					CaseConvert(NameString, false);
+
+			//Add char to end.
 				ListData.push_back(NameString);
 				if (KeepEmptyItem && Data.at(Index) == SeparatedSign)
 				{
@@ -1125,6 +1127,8 @@ void GetParameterListData(
 			{
 				if (IsCaseConvert)
 					CaseConvert(NameString, false);
+
+			//Add char to end.
 				ListData.push_back(NameString);
 				NameString.clear();
 			}

@@ -22,9 +22,9 @@
 
 #include "Platform.h"
 
-//Memory alignment: 1 bytes
-#pragma pack(push)
-#pragma pack(1)
+//Memory alignment settings
+#pragma pack(push) //Push current alignment to stack.
+#pragma pack(1) //Set alignment to 1 byte boundary.
 
 //////////////////////////////////////////////////
 // Protocol Header structures
@@ -2540,8 +2540,8 @@ typedef struct _dnscurve_txt_signature_
 /* About RFC standards
 * RFC 1928, SOCKS Protocol Version 5(https://tools.ietf.org/html/rfc1928)
 * RFC 1929, Username/Password Authentication for SOCKS V5(https://tools.ietf.org/html/rfc1929)
-* SOCKS(version 4): A protocol for TCP proxy across firewalls(http://www.openssh.com/txt/socks4.protocol)
-* SOCKS 4A: A Simple Extension to SOCKS 4 Protocol(http://www.openssh.com/txt/socks4a.protocol)
+* SOCKS(version 4): A protocol for TCP proxy across firewalls(https://www.openssh.com/txt/socks4.protocol)
+* SOCKS 4A: A Simple Extension to SOCKS 4 Protocol(https://www.openssh.com/txt/socks4a.protocol)
 */
 //Version, Method, Command and Reply definitions
 #define SOCKS_VERSION_4                            4U
@@ -2785,6 +2785,6 @@ typedef struct _tls_base_record_
 }tls_base_record, *ptls_base_record;
 #endif
 
-//Reset original alignment.
-#pragma pack(pop)
+//Memory alignment(Part 2)
+#pragma pack(pop) //Restore original alignment from stack.
 #endif

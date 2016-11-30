@@ -109,7 +109,7 @@ bool PrintError(
 			ErrorMessage.append(L"[Pcap Error] ");
 			ErrorMessage.append(Message);
 
-			return WriteScreenAndFile(ErrorMessage, ErrorCode, Line);
+			return WriteMessage_ScreenFile(ErrorMessage, ErrorCode, Line);
 		}break;
 	#endif
 	//DNSCurve Error
@@ -153,11 +153,11 @@ bool PrintError(
 	ErrorMessage.append(L".\n");
 
 //Print error log.
-	return WriteScreenAndFile(ErrorMessage, ErrorCode, Line);
+	return WriteMessage_ScreenFile(ErrorMessage, ErrorCode, Line);
 }
 
 //Write to screen and file
-bool WriteScreenAndFile(
+bool WriteMessage_ScreenFile(
 	const std::wstring Message, 
 	const ssize_t ErrorCode, 
 	const size_t Line)
@@ -438,7 +438,7 @@ void ReadTextPrintLog(
 		{
 			PrintError(LOG_LEVEL_2, LOG_ERROR_IPFILTER, L"Data of a line is too short", 0, FileList_IPFilter.at(FileIndex).FileName.c_str(), Line);
 		}break;
-		case READ_TEXT_PARAMETER: //ReadParameter
+		case READ_TEXT_PARAMETER_NORMAL: //ReadParameter
 		{
 			PrintError(LOG_LEVEL_2, LOG_ERROR_PARAMETER, L"Data of a line is too short", 0, FileList_Config.at(FileIndex).FileName.c_str(), Line);
 		}break;

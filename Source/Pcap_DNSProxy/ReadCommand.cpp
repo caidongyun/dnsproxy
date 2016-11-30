@@ -57,9 +57,10 @@ bool ReadCommand(
 	WSAData WSAInitialization;
 	memset(&WSAInitialization, 0, sizeof(WSAInitialization));
 	if (WSAStartup(
-			MAKEWORD(WINSOCK_VERSION_HIGH, WINSOCK_VERSION_LOW), //WinSock 2.2
+			MAKEWORD(WINSOCK_VERSION_HIGH_BYTE, WINSOCK_VERSION_LOW_BYTE), 
 			&WSAInitialization) != 0 || 
-		LOBYTE(WSAInitialization.wVersion) != WINSOCK_VERSION_LOW || HIBYTE(WSAInitialization.wVersion) != WINSOCK_VERSION_HIGH)
+		LOBYTE(WSAInitialization.wVersion) != WINSOCK_VERSION_LOW_BYTE || 
+		HIBYTE(WSAInitialization.wVersion) != WINSOCK_VERSION_HIGH_BYTE)
 	{
 		PrintError(LOG_LEVEL_1, LOG_ERROR_NETWORK, L"Winsock initialization error", WSAGetLastError(), nullptr, 0);
 		return false;

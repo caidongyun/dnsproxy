@@ -20,10 +20,10 @@
 #include "Configuration.h"
 
 //Global variables
-extern size_t HopLimitIndex[];
+extern size_t ParameterHopLimitIndex[];
 
 //Check parameter list and set default values
-bool ParameterCheckAndSetting(
+bool Parameter_CheckSetting(
 	const bool IsFirstRead, 
 	const size_t FileIndex)
 {
@@ -48,7 +48,7 @@ bool ParameterCheckAndSetting(
 
 //[Base] block
 	//Configuration file version check
-	if (ParameterPTR->Version != CONFIG_VERSION)
+	if (ParameterPTR->Version != CONFIG_FILE_VERSION)
 	{
 		PrintError(LOG_LEVEL_1, LOG_ERROR_PARAMETER, L"Configuration file version error", 0, FileList_Config.at(FileIndex).FileName.c_str(), 0);
 		return false;
@@ -56,7 +56,7 @@ bool ParameterCheckAndSetting(
 
 //[Log] block
 	//Log maximum size check
-	if (ParameterPTR->LogMaxSize < LOG_READING_MINSIZE || ParameterPTR->LogMaxSize > FILE_READING_MAXSIZE)
+	if (ParameterPTR->LogMaxSize < LOG_READING_MINSIZE || ParameterPTR->LogMaxSize >= FILE_READING_MAXSIZE)
 	{
 		PrintError(LOG_LEVEL_1, LOG_ERROR_PARAMETER, L"Log file size error", 0, FileList_Config.at(FileIndex).FileName.c_str(), 0);
 		return false;
@@ -99,7 +99,7 @@ bool ParameterCheckAndSetting(
 
 //[DNS] block part 1
 	//DNS cache check
-	if (IsFirstRead && Parameter.CacheType > CACHE_TYPE_NONE && Parameter.CacheParameter == 0)
+	if (IsFirstRead && Parameter.CacheType != CACHE_TYPE_NONE && Parameter.CacheParameter == 0)
 	{
 		PrintError(LOG_LEVEL_1, LOG_ERROR_PARAMETER, L"DNS Cache error", 0, FileList_Config.at(FileIndex).FileName.c_str(), 0);
 		return false;
@@ -457,8 +457,8 @@ bool ParameterCheckAndSetting(
 	//Default Local DNS server name
 		if (Parameter.LocalFQDN_Length <= 0)
 		{
-			Parameter.LocalFQDN_Length = StringToPacketQuery((const uint8_t *)DEFAULT_LOCAL_SERVERNAME, Parameter.LocalFQDN_Response);
-			*Parameter.LocalFQDN_String = DEFAULT_LOCAL_SERVERNAME;
+			Parameter.LocalFQDN_Length = StringToPacketQuery((const uint8_t *)DEFAULT_LOCAL_SERVER_NAME, Parameter.LocalFQDN_Response);
+			*Parameter.LocalFQDN_String = DEFAULT_LOCAL_SERVER_NAME;
 		}
 
 	//Set Local DNS server PTR response.
@@ -743,12 +743,12 @@ bool ParameterCheckAndSetting(
 		if (IsFirstRead)
 		{
 		//DNSCurve targets check
-			if (DNSCurveParameter.DNSCurve_Target_Server_Main_IPv6.AddressData.Storage.ss_family == 0 && DNSCurveParameter.DNSCurve_Target_Server_Alternate_IPv6.AddressData.Storage.ss_family > 0)
+			if (DNSCurveParameter.DNSCurve_Target_Server_Main_IPv6.AddressData.Storage.ss_family == 0 && DNSCurveParameter.DNSCurve_Target_Server_Alternate_IPv6.AddressData.Storage.ss_family != 0)
 			{
 				DNSCurveParameter.DNSCurve_Target_Server_Main_IPv6 = DNSCurveParameter.DNSCurve_Target_Server_Alternate_IPv6;
 				sodium_memzero(&DNSCurveParameter.DNSCurve_Target_Server_Alternate_IPv6, sizeof(DNSCurveParameter.DNSCurve_Target_Server_Alternate_IPv6));
 			}
-			if (DNSCurveParameter.DNSCurve_Target_Server_Main_IPv4.AddressData.Storage.ss_family == 0 && DNSCurveParameter.DNSCurve_Target_Server_Alternate_IPv4.AddressData.Storage.ss_family > 0)
+			if (DNSCurveParameter.DNSCurve_Target_Server_Main_IPv4.AddressData.Storage.ss_family == 0 && DNSCurveParameter.DNSCurve_Target_Server_Alternate_IPv4.AddressData.Storage.ss_family != 0)
 			{
 				DNSCurveParameter.DNSCurve_Target_Server_Main_IPv4 = DNSCurveParameter.DNSCurve_Target_Server_Alternate_IPv4;
 				sodium_memzero(&DNSCurveParameter.DNSCurve_Target_Server_Alternate_IPv4, sizeof(DNSCurveParameter.DNSCurve_Target_Server_Alternate_IPv4));
@@ -756,11 +756,11 @@ bool ParameterCheckAndSetting(
 
 			if ((DNSCurveParameter.DNSCurve_Target_Server_Main_IPv4.AddressData.Storage.ss_family == 0 && DNSCurveParameter.DNSCurve_Target_Server_Main_IPv6.AddressData.Storage.ss_family == 0) || 
 			//Check repeating items.
-				(DNSCurveParameter.DNSCurve_Target_Server_Main_IPv4.AddressData.Storage.ss_family > 0 && 
-				DNSCurveParameter.DNSCurve_Target_Server_Alternate_IPv4.AddressData.Storage.ss_family > 0 && 
+				(DNSCurveParameter.DNSCurve_Target_Server_Main_IPv4.AddressData.Storage.ss_family != 0 && 
+				DNSCurveParameter.DNSCurve_Target_Server_Alternate_IPv4.AddressData.Storage.ss_family != 0 && 
 				DNSCurveParameter.DNSCurve_Target_Server_Main_IPv4.AddressData.IPv4.sin_addr.s_addr == DNSCurveParameter.DNSCurve_Target_Server_Alternate_IPv4.AddressData.IPv4.sin_addr.s_addr) || 
-				(DNSCurveParameter.DNSCurve_Target_Server_Main_IPv6.AddressData.Storage.ss_family > 0 && 
-				DNSCurveParameter.DNSCurve_Target_Server_Alternate_IPv6.AddressData.Storage.ss_family > 0 && 
+				(DNSCurveParameter.DNSCurve_Target_Server_Main_IPv6.AddressData.Storage.ss_family != 0 && 
+				DNSCurveParameter.DNSCurve_Target_Server_Alternate_IPv6.AddressData.Storage.ss_family != 0 && 
 				memcmp(&DNSCurveParameter.DNSCurve_Target_Server_Main_IPv6.AddressData.IPv6.sin6_addr, &DNSCurveParameter.DNSCurve_Target_Server_Alternate_IPv6.AddressData.IPv6.sin6_addr, sizeof(DNSCurveParameter.DNSCurve_Target_Server_Main_IPv6.AddressData.IPv6.sin6_addr)) == 0))
 			{
 				PrintError(LOG_LEVEL_1, LOG_ERROR_PARAMETER, L"DNSCurve target error", 0, FileList_Config.at(FileIndex).FileName.c_str(), 0);
@@ -776,7 +776,7 @@ bool ParameterCheckAndSetting(
 		}
 
 	//Main(IPv6)
-		if (DNSCurveParameter.IsEncryption && DNSCurveParameter.DNSCurve_Target_Server_Main_IPv6.AddressData.Storage.ss_family > 0)
+		if (DNSCurveParameter.IsEncryption && DNSCurveParameter.DNSCurve_Target_Server_Main_IPv6.AddressData.Storage.ss_family != 0)
 		{
 		//Empty Server Fingerprint
 			if (CheckEmptyBuffer(DNSCurveParameterPTR->DNSCurve_Target_Server_Main_IPv6.ServerFingerprint, crypto_box_PUBLICKEYBYTES))
@@ -829,7 +829,7 @@ bool ParameterCheckAndSetting(
 		}
 
 	//Main(IPv4)
-		if (DNSCurveParameter.IsEncryption && DNSCurveParameter.DNSCurve_Target_Server_Main_IPv4.AddressData.Storage.ss_family > 0)
+		if (DNSCurveParameter.IsEncryption && DNSCurveParameter.DNSCurve_Target_Server_Main_IPv4.AddressData.Storage.ss_family != 0)
 		{
 		//Empty Server Fingerprint
 			if (CheckEmptyBuffer(DNSCurveParameterPTR->DNSCurve_Target_Server_Main_IPv4.ServerFingerprint, crypto_box_PUBLICKEYBYTES))
@@ -882,7 +882,7 @@ bool ParameterCheckAndSetting(
 		}
 
 	//Alternate(IPv6)
-		if (DNSCurveParameter.IsEncryption && DNSCurveParameter.DNSCurve_Target_Server_Alternate_IPv6.AddressData.Storage.ss_family > 0)
+		if (DNSCurveParameter.IsEncryption && DNSCurveParameter.DNSCurve_Target_Server_Alternate_IPv6.AddressData.Storage.ss_family != 0)
 		{
 		//Empty Server Fingerprint
 			if (CheckEmptyBuffer(DNSCurveParameterPTR->DNSCurve_Target_Server_Alternate_IPv6.ServerFingerprint, crypto_box_PUBLICKEYBYTES))
@@ -935,7 +935,7 @@ bool ParameterCheckAndSetting(
 		}
 
 	//Alternate(IPv4)
-		if (DNSCurveParameter.IsEncryption && DNSCurveParameter.DNSCurve_Target_Server_Alternate_IPv4.AddressData.Storage.ss_family > 0)
+		if (DNSCurveParameter.IsEncryption && DNSCurveParameter.DNSCurve_Target_Server_Alternate_IPv4.AddressData.Storage.ss_family != 0)
 		{
 		//Empty Server Fingerprint
 			if (CheckEmptyBuffer(DNSCurveParameterPTR->DNSCurve_Target_Server_Alternate_IPv4.ServerFingerprint, crypto_box_PUBLICKEYBYTES))
@@ -1006,22 +1006,22 @@ bool ParameterCheckAndSetting(
 			}
 
 		//Main(IPv6)
-			if (DNSCurveParameter.DNSCurve_Target_Server_Main_IPv6.AddressData.Storage.ss_family > 0 && 
+			if (DNSCurveParameter.DNSCurve_Target_Server_Main_IPv6.AddressData.Storage.ss_family != 0 && 
 				CheckEmptyBuffer(DNSCurveParameterPTR->DNSCurve_Target_Server_Main_IPv6.ReceiveMagicNumber, DNSCURVE_MAGIC_QUERY_LEN))
 					memcpy_s(DNSCurveParameterPTR->DNSCurve_Target_Server_Main_IPv6.ReceiveMagicNumber, DNSCURVE_MAGIC_QUERY_LEN, DNSCRYPT_RECEIVE_MAGIC, DNSCURVE_MAGIC_QUERY_LEN);
 
 		//Main(IPv4)
-			if (DNSCurveParameter.DNSCurve_Target_Server_Main_IPv4.AddressData.Storage.ss_family > 0 && 
+			if (DNSCurveParameter.DNSCurve_Target_Server_Main_IPv4.AddressData.Storage.ss_family != 0 && 
 				CheckEmptyBuffer(DNSCurveParameterPTR->DNSCurve_Target_Server_Main_IPv4.ReceiveMagicNumber, DNSCURVE_MAGIC_QUERY_LEN))
 					memcpy_s(DNSCurveParameterPTR->DNSCurve_Target_Server_Main_IPv4.ReceiveMagicNumber, DNSCURVE_MAGIC_QUERY_LEN, DNSCRYPT_RECEIVE_MAGIC, DNSCURVE_MAGIC_QUERY_LEN);
 
 		//Alternate(IPv6)
-			if (DNSCurveParameter.DNSCurve_Target_Server_Alternate_IPv6.AddressData.Storage.ss_family > 0 && 
+			if (DNSCurveParameter.DNSCurve_Target_Server_Alternate_IPv6.AddressData.Storage.ss_family != 0 && 
 				CheckEmptyBuffer(DNSCurveParameterPTR->DNSCurve_Target_Server_Alternate_IPv6.ReceiveMagicNumber, DNSCURVE_MAGIC_QUERY_LEN))
 					memcpy_s(DNSCurveParameterPTR->DNSCurve_Target_Server_Alternate_IPv6.ReceiveMagicNumber, DNSCURVE_MAGIC_QUERY_LEN, DNSCRYPT_RECEIVE_MAGIC, DNSCURVE_MAGIC_QUERY_LEN);
 
 		//Alternate(IPv4)
-			if (DNSCurveParameter.DNSCurve_Target_Server_Alternate_IPv4.AddressData.Storage.ss_family > 0 && 
+			if (DNSCurveParameter.DNSCurve_Target_Server_Alternate_IPv4.AddressData.Storage.ss_family != 0 && 
 				CheckEmptyBuffer(DNSCurveParameterPTR->DNSCurve_Target_Server_Alternate_IPv4.ReceiveMagicNumber, DNSCURVE_MAGIC_QUERY_LEN))
 					memcpy_s(DNSCurveParameterPTR->DNSCurve_Target_Server_Alternate_IPv4.ReceiveMagicNumber, DNSCURVE_MAGIC_QUERY_LEN, DNSCRYPT_RECEIVE_MAGIC, DNSCURVE_MAGIC_QUERY_LEN);
 
@@ -1501,7 +1501,7 @@ bool ReadParameterData(
 		if (Data.length() > strlen("Version=") && Data.length() < strlen("Version=") + 8U)
 		{
 			ParameterPTR->Version = strtod(Data.c_str() + strlen("Version="), nullptr);
-			if (ParameterPTR->Version == 0 || ParameterPTR->Version == HUGE_VAL)
+			if (ParameterPTR->Version <= 0 || ParameterPTR->Version == HUGE_VAL)
 				goto PrintDataFormatError;
 		}
 		else {
@@ -1540,27 +1540,27 @@ bool ReadParameterData(
 		else if (Data.find("Additional Path = ") == 0 && Data.length() > strlen("Additional Path = "))
 		{
 		#if defined(PLATFORM_WIN)
-			if (!ReadPathAndFileName(Data, strlen("Additional Path = "), true, GlobalRunningStatus.Path_Global, FileIndex, Line))
+			if (!ReadName_PathFile(Data, strlen("Additional Path = "), true, GlobalRunningStatus.Path_Global, FileIndex, Line))
 		#elif (defined(PLATFORM_LINUX) || defined(PLATFORM_MACOS))
-			if (!ReadPathAndFileName(Data, strlen("Additional Path = "), true, GlobalRunningStatus.Path_Global, GlobalRunningStatus.MBS_Path_Global, FileIndex, Line))
+			if (!ReadName_PathFile(Data, strlen("Additional Path = "), true, GlobalRunningStatus.Path_Global, GlobalRunningStatus.MBS_Path_Global, FileIndex, Line))
 		#endif
 				return false;
 		}
 		else if (Data.find("Hosts File Name = ") == 0 && Data.length() > strlen("Hosts File Name = "))
 		{
 		#if defined(PLATFORM_WIN)
-			if (!ReadPathAndFileName(Data, strlen("Hosts File Name = "), false, GlobalRunningStatus.FileList_Hosts, FileIndex, Line))
+			if (!ReadName_PathFile(Data, strlen("Hosts File Name = "), false, GlobalRunningStatus.FileList_Hosts, FileIndex, Line))
 		#elif (defined(PLATFORM_LINUX) || defined(PLATFORM_MACOS))
-			if (!ReadPathAndFileName(Data, strlen("Hosts File Name = "), false, GlobalRunningStatus.FileList_Hosts, GlobalRunningStatus.MBS_FileList_Hosts, FileIndex, Line))
+			if (!ReadName_PathFile(Data, strlen("Hosts File Name = "), false, GlobalRunningStatus.FileList_Hosts, GlobalRunningStatus.MBS_FileList_Hosts, FileIndex, Line))
 		#endif
 				return false;
 		}
 		else if (Data.find("IPFilter File Name = ") == 0 && Data.length() > strlen("IPFilter File Name = "))
 		{
 		#if defined(PLATFORM_WIN)
-			if (!ReadPathAndFileName(Data, strlen("IPFilter File Name = "), false, GlobalRunningStatus.FileList_IPFilter, FileIndex, Line))
+			if (!ReadName_PathFile(Data, strlen("IPFilter File Name = "), false, GlobalRunningStatus.FileList_IPFilter, FileIndex, Line))
 		#elif (defined(PLATFORM_LINUX) || defined(PLATFORM_MACOS))
-			if (!ReadPathAndFileName(Data, strlen("IPFilter File Name = "), false, GlobalRunningStatus.FileList_IPFilter, GlobalRunningStatus.MBS_FileList_IPFilter, FileIndex, Line))
+			if (!ReadName_PathFile(Data, strlen("IPFilter File Name = "), false, GlobalRunningStatus.FileList_IPFilter, GlobalRunningStatus.MBS_FileList_IPFilter, FileIndex, Line))
 		#endif
 				return false;
 		}
@@ -1852,7 +1852,7 @@ bool ReadParameterData(
 			else if (Data.find("QUEUE") != std::string::npos)
 				Parameter.CacheType = CACHE_TYPE_QUEUE;
 		}
-		else if (Parameter.CacheType > CACHE_TYPE_NONE && Data.find("CacheParameter=") == 0 && Data.length() > strlen("CacheParameter="))
+		else if (Parameter.CacheType != CACHE_TYPE_NONE && Data.find("CacheParameter=") == 0 && Data.length() > strlen("CacheParameter="))
 		{
 			_set_errno(0);
 			UnsignedResult = strtoul(Data.c_str() + strlen("CacheParameter="), nullptr, 0);
@@ -2468,7 +2468,9 @@ bool ReadParameterData(
 				Parameter.EDNS_Switch_SOCKS = true;
 				Parameter.EDNS_Switch_HTTP_CONNECT = true;
 				Parameter.EDNS_Switch_Direct = true;
+			#if defined(ENABLE_LIBSODIUM)
 				Parameter.EDNS_Switch_DNSCurve = true;
+			#endif
 				Parameter.EDNS_Switch_TCP = true;
 				Parameter.EDNS_Switch_UDP = true;
 			}
@@ -2497,11 +2499,13 @@ bool ReadParameterData(
 					Parameter.EDNS_Switch_Direct = true;
 				}
 
+			#if defined(ENABLE_LIBSODIUM)
 				if (Data.find("DNSCURVE") != std::string::npos || Data.find("DNSCRYPT") != std::string::npos)
 				{
 					Parameter.EDNS_Label = true;
 					Parameter.EDNS_Switch_DNSCurve = true;
 				}
+			#endif
 
 				if (Data.find("TCP") != std::string::npos)
 				{
@@ -2559,6 +2563,10 @@ bool ReadParameterData(
 	else if (IsFirstRead && Data.find("BlacklistFilter=1") == 0)
 	{
 		Parameter.DataCheck_Blacklist = true;
+	}
+	else if (Data.find("StrictResourceRecordTTLFilter=1") == 0)
+	{
+		ParameterPTR->DataCheck_Strict_RR_TTL = true;
 	}
 
 //[Data] block
@@ -2716,7 +2724,7 @@ bool ReadParameterData(
 
 	if (Data.find("SOCKSTargetServer=") == 0 && Data.length() > strlen("SOCKSTargetServer="))
 	{
-		if (!Read_SOCKS_AddressAndDomain(Data, strlen("SOCKSTargetServer="), ParameterPTR, FileIndex, Line))
+		if (!Read_SOCKS_AddressDomain(Data, strlen("SOCKSTargetServer="), ParameterPTR, FileIndex, Line))
 			return false;
 	}
 	else if (Data.find("SOCKSUsername=") == 0 && Data.length() > strlen("SOCKSUsername="))
@@ -3129,7 +3137,7 @@ PrintDataFormatError:
 
 //Read file names from data
 #if defined(PLATFORM_WIN)
-bool ReadPathAndFileName(
+bool ReadName_PathFile(
 	std::string Data, 
 	const size_t DataOffset, 
 	const bool Path, 
@@ -3137,7 +3145,7 @@ bool ReadPathAndFileName(
 	const size_t FileIndex, 
 	const size_t Line)
 #elif (defined(PLATFORM_LINUX) || defined(PLATFORM_MACOS))
-bool ReadPathAndFileName(
+bool ReadName_PathFile(
 	std::string Data, 
 	const size_t DataOffset, 
 	const bool Path, 
@@ -3155,7 +3163,7 @@ bool ReadPathAndFileName(
 	if (Path)
 	{
 	//Mark all data in list.
-		for (auto StringIter:InnerListData)
+		for (auto &StringIter:InnerListData)
 		{
 		//Add backslash or slash.
 		#if defined(PLATFORM_WIN)
@@ -3434,7 +3442,7 @@ bool ReadMultipleAddresses(
 }
 
 //Read address or domain of SOCKS
-bool Read_SOCKS_AddressAndDomain(
+bool Read_SOCKS_AddressDomain(
 	std::string Data, 
 	const size_t DataOffset, 
 	CONFIGURATION_TABLE * const ParameterPTR, 
@@ -3602,22 +3610,22 @@ bool ReadHopLimitData(
 			//Monitor mode
 				if (!IsFirstRead)
 				{
-					if (HopLimitIndex[NETWORK_LAYER_IPV6] == 0)
+					if (ParameterHopLimitIndex[NETWORK_LAYER_IPV6] == 0)
 						Parameter.Target_Server_Main_IPv6.HopLimitData_Assign.HopLimit = (uint8_t)UnsignedResult;
-					else if (HopLimitIndex[NETWORK_LAYER_IPV6] == 1U)
+					else if (ParameterHopLimitIndex[NETWORK_LAYER_IPV6] == 1U)
 						Parameter.Target_Server_Alternate_IPv6.HopLimitData_Assign.HopLimit = (uint8_t)UnsignedResult;
-					else if (!DNSServerDataList->empty() && HopLimitIndex[NETWORK_LAYER_IPV6] - 2U < DNSServerDataList->size())
-						DNSServerDataList->at(HopLimitIndex[NETWORK_LAYER_IPV6] - 2U).HopLimitData_Assign.HopLimit = (uint8_t)UnsignedResult;
+					else if (!DNSServerDataList->empty() && ParameterHopLimitIndex[NETWORK_LAYER_IPV6] - 2U < DNSServerDataList->size())
+						DNSServerDataList->at(ParameterHopLimitIndex[NETWORK_LAYER_IPV6] - 2U).HopLimitData_Assign.HopLimit = (uint8_t)UnsignedResult;
 					else 
 						goto PrintDataFormatError;
 
-					++HopLimitIndex[NETWORK_LAYER_IPV6];
+					++ParameterHopLimitIndex[NETWORK_LAYER_IPV6];
 				}
 			//Normal mode
-				else if (!DNSServerDataList->empty() && HopLimitIndex[NETWORK_LAYER_IPV6] < DNSServerDataList->size())
+				else if (!DNSServerDataList->empty() && ParameterHopLimitIndex[NETWORK_LAYER_IPV6] < DNSServerDataList->size())
 				{
-					DNSServerDataList->at(HopLimitIndex[NETWORK_LAYER_IPV6]).HopLimitData_Assign.HopLimit = (uint8_t)UnsignedResult;
-					++HopLimitIndex[NETWORK_LAYER_IPV6];
+					DNSServerDataList->at(ParameterHopLimitIndex[NETWORK_LAYER_IPV6]).HopLimitData_Assign.HopLimit = (uint8_t)UnsignedResult;
+					++ParameterHopLimitIndex[NETWORK_LAYER_IPV6];
 				}
 				else {
 					goto PrintDataFormatError;
@@ -3628,22 +3636,22 @@ bool ReadHopLimitData(
 			//Monitor mode
 				if (!IsFirstRead)
 				{
-					if (HopLimitIndex[NETWORK_LAYER_IPV4] == 0)
+					if (ParameterHopLimitIndex[NETWORK_LAYER_IPV4] == 0)
 						Parameter.Target_Server_Main_IPv4.HopLimitData_Assign.TTL = (uint8_t)UnsignedResult;
-					else if (HopLimitIndex[NETWORK_LAYER_IPV4] == 1U)
+					else if (ParameterHopLimitIndex[NETWORK_LAYER_IPV4] == 1U)
 						Parameter.Target_Server_Alternate_IPv4.HopLimitData_Assign.TTL = (uint8_t)UnsignedResult;
-					else if (!DNSServerDataList->empty() && HopLimitIndex[NETWORK_LAYER_IPV4] - 2U < DNSServerDataList->size())
-						DNSServerDataList->at(HopLimitIndex[NETWORK_LAYER_IPV4] - 2U).HopLimitData_Assign.TTL = (uint8_t)UnsignedResult;
+					else if (!DNSServerDataList->empty() && ParameterHopLimitIndex[NETWORK_LAYER_IPV4] - 2U < DNSServerDataList->size())
+						DNSServerDataList->at(ParameterHopLimitIndex[NETWORK_LAYER_IPV4] - 2U).HopLimitData_Assign.TTL = (uint8_t)UnsignedResult;
 					else 
 						goto PrintDataFormatError;
 
-					++HopLimitIndex[NETWORK_LAYER_IPV4];
+					++ParameterHopLimitIndex[NETWORK_LAYER_IPV4];
 				}
 			//Normal mode
-				else if (!DNSServerDataList->empty() && HopLimitIndex[NETWORK_LAYER_IPV4] < DNSServerDataList->size())
+				else if (!DNSServerDataList->empty() && ParameterHopLimitIndex[NETWORK_LAYER_IPV4] < DNSServerDataList->size())
 				{
-					DNSServerDataList->at(HopLimitIndex[NETWORK_LAYER_IPV4]).HopLimitData_Assign.TTL = (uint8_t)UnsignedResult;
-					++HopLimitIndex[NETWORK_LAYER_IPV4];
+					DNSServerDataList->at(ParameterHopLimitIndex[NETWORK_LAYER_IPV4]).HopLimitData_Assign.TTL = (uint8_t)UnsignedResult;
+					++ParameterHopLimitIndex[NETWORK_LAYER_IPV4];
 				}
 				else {
 					goto PrintDataFormatError;

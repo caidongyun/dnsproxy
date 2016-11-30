@@ -54,6 +54,8 @@ void MonitorRequestConsumer(
 //Initialization
 	MONITOR_QUEUE_DATA MonitorQueryData;
 	std::shared_ptr<uint8_t> SendBuffer(new uint8_t[Parameter.LargeBufferSize + PADDING_RESERVED_BYTES]()), RecvBuffer(new uint8_t[Parameter.LargeBufferSize + PADDING_RESERVED_BYTES]());
+	memset(SendBuffer.get(), 0, Parameter.LargeBufferSize + PADDING_RESERVED_BYTES);
+	memset(RecvBuffer.get(), 0, Parameter.LargeBufferSize + PADDING_RESERVED_BYTES);
 	size_t LastActiveTime = 0;
 
 //Monitor consumer
@@ -173,10 +175,10 @@ bool EnterRequestProcess(
 	}
 
 //Local request process
-	if (MonitorQueryData.first.IsLocal)
+	if (MonitorQueryData.first.IsLocalRequest)
 	{
 		const auto Result = LocalRequestProcess(MonitorQueryData, RecvBuffer, RecvSize);
-		if (Result || Parameter.LocalForce)
+		if (Result || (MonitorQueryData.first.IsLocalForce && Parameter.LocalForce))
 		{
 		//Fin TCP request connection.
 			if (MonitorQueryData.first.Protocol == IPPROTO_TCP && SocketSetting(MonitorQueryData.second.Socket, SOCKET_SETTING_INVALID_CHECK, false, nullptr))
@@ -321,14 +323,14 @@ size_t CheckWhiteBannedHostsProcess(
 	const HostsTable &HostsTableIter, 
 	dns_hdr * const DNS_Header, 
 	dns_qry * const DNS_Query, 
-	bool * const IsLocal)
+	bool * const IsLocalRequest)
 {
 //Whitelist Hosts
 	if (HostsTableIter.PermissionType == HOSTS_TYPE_WHITE)
 	{
-	//Reset IsLocal flag.
-		if (IsLocal != nullptr)
-			*IsLocal = false;
+	//Reset flag.
+		if (IsLocalRequest != nullptr)
+			*IsLocalRequest = false;
 
 	//Ignore all types.
 		if (HostsTableIter.RecordTypeList.empty())
@@ -361,9 +363,9 @@ size_t CheckWhiteBannedHostsProcess(
 //Banned Hosts
 	else if (HostsTableIter.PermissionType == HOSTS_TYPE_BANNED)
 	{
-	//Reset IsLocal flag.
-		if (IsLocal != nullptr)
-			*IsLocal = false;
+	//Reset flag.
+		if (IsLocalRequest != nullptr)
+			*IsLocalRequest = false;
 
 	//Block all types.
 		if (HostsTableIter.RecordTypeList.empty())
@@ -666,7 +668,7 @@ size_t CheckHostsProcess(
 
 //Local Main parameter check
 	if (Parameter.LocalMain)
-		Packet->IsLocal = true;
+		Packet->IsLocalRequest = true;
 
 //Normal Hosts check
 	auto IsMatch = false;
@@ -730,7 +732,7 @@ size_t CheckHostsProcess(
 			JumpToContinue:
 
 			//Check white and banned hosts list, empty record type list check
-				DataLength = CheckWhiteBannedHostsProcess(Packet->Length, HostsTableIter, DNS_Header, DNS_Query, &Packet->IsLocal);
+				DataLength = CheckWhiteBannedHostsProcess(Packet->Length, HostsTableIter, DNS_Header, DNS_Query, &Packet->IsLocalRequest);
 				if (DataLength >= DNS_PACKET_MINSIZE)
 					return DataLength;
 				else if (DataLength == EXIT_FAILURE)
@@ -850,7 +852,7 @@ StopLoop_NormalHosts:
 	HostsFileMutex.unlock();
 
 //Check DNS cache.
-	if (Parameter.CacheType > CACHE_TYPE_NONE)
+	if (Parameter.CacheType != CACHE_TYPE_NONE)
 	{
 		std::lock_guard<std::mutex> DNSCacheListMutex(DNSCacheListLock);
 		AutoClearDNSCache();
@@ -894,17 +896,23 @@ StopLoop_NormalHosts:
 			if (IsMatch)
 			{
 			//Check white and banned hosts list.
-				DataLength = CheckWhiteBannedHostsProcess(Packet->Length, HostsTableIter, DNS_Header, DNS_Query, &Packet->IsLocal);
+				DataLength = CheckWhiteBannedHostsProcess(Packet->Length, HostsTableIter, DNS_Header, DNS_Query, &Packet->IsLocalRequest);
 				if (DataLength >= DNS_PACKET_MINSIZE)
+				{
 					return DataLength;
+				}
 				else if (DataLength == EXIT_FAILURE)
-					Packet->IsLocal = false;
+				{
+					Packet->IsLocalRequest = false;
+				}
 			//IsLocal flag setting
-				else 
-					Packet->IsLocal = true;
+				else {
+					Packet->IsLocalRequest = true;
+					Packet->IsLocalForce = true;
+				}
 
 			//Mark Local server target and stop loop.
-				if (Packet->IsLocal && !HostsTableIter.AddrOrTargetList.empty())
+				if (Packet->IsLocalRequest && !HostsTableIter.AddrOrTargetList.empty())
 					Packet->LocalTarget = HostsTableIter.AddrOrTargetList.front();
 				goto StopLoop_LocalHosts;
 			}
@@ -1256,13 +1264,13 @@ uint16_t SelectNetworkProtocol(
 	void)
 {
 //IPv6
-	if (Parameter.Target_Server_Main_IPv6.AddressData.Storage.ss_family > 0 && 
+	if (Parameter.Target_Server_Main_IPv6.AddressData.Storage.ss_family != 0 && 
 		((Parameter.RequestMode_Network == REQUEST_MODE_BOTH && GlobalRunningStatus.GatewayAvailable_IPv6) || //Auto select
 		Parameter.RequestMode_Network == REQUEST_MODE_IPV6 || //IPv6
 		(Parameter.RequestMode_Network == REQUEST_MODE_IPV4 && Parameter.Target_Server_Main_IPv4.AddressData.Storage.ss_family == 0))) //Non-IPv4
 			return AF_INET6;
 //IPv4
-	else if (Parameter.Target_Server_Main_IPv4.AddressData.Storage.ss_family > 0 && 
+	else if (Parameter.Target_Server_Main_IPv4.AddressData.Storage.ss_family != 0 && 
 		((Parameter.RequestMode_Network == REQUEST_MODE_BOTH && GlobalRunningStatus.GatewayAvailable_IPv4) || //Auto select
 		Parameter.RequestMode_Network == REQUEST_MODE_IPV4 || //IPv4
 		(Parameter.RequestMode_Network == REQUEST_MODE_IPV6 && Parameter.Target_Server_Main_IPv6.AddressData.Storage.ss_family == 0))) //Non-IPv6
@@ -1320,7 +1328,7 @@ bool SendToRequester(
 	const SOCKET_DATA &LocalSocketData)
 {
 //Response check
-	if (RecvSize < DNS_PACKET_MINSIZE || CheckEmptyBuffer(RecvBuffer, RecvSize) || 
+	if (RecvSize < DNS_PACKET_MINSIZE || CheckEmptyBuffer(RecvBuffer, RecvSize) || !SocketSetting(LocalSocketData.Socket, SOCKET_SETTING_INVALID_CHECK, false, nullptr) || 
 		((pdns_hdr)RecvBuffer)->ID == 0 || ((pdns_hdr)RecvBuffer)->Flags == 0) //DNS header ID and flags must not be set 0.
 			return false;
 

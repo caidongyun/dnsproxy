@@ -205,7 +205,7 @@ void ConfigurationTableSetting(
 
 //Default value settings
 	//[Base] block
-	ConfigurationParameter->FileRefreshTime = DEFAULT_FILEREFRESH_TIME;
+	ConfigurationParameter->FileRefreshTime = DEFAULT_FILE_REFRESH_TIME;
 	ConfigurationParameter->LargeBufferSize = DEFAULT_LARGE_BUFFER_SIZE;
 
 	//[Log] block
@@ -278,8 +278,8 @@ void ConfigurationTableSetting(
 			ConfigurationParameter->ICMP_PaddingData[Index] = CharData;
 		ConfigurationParameter->ICMP_PaddingLength = strlen((const char *)ConfigurationParameter->ICMP_PaddingData); //Load default padding data in Linux.
 	#elif defined(PLATFORM_MACOS)
-		size_t CharData = ICMP_STRING_START_NUM_MAC;
-		for (size_t Index = 0;Index < ICMP_PADDING_LENGTH_MAC;++Index, ++CharData)
+		size_t CharData = ICMP_STRING_START_NUM_MACOS;
+		for (size_t Index = 0;Index < ICMP_PADDING_LENGTH_MACOS;++Index, ++CharData)
 			ConfigurationParameter->ICMP_PaddingData[Index] = CharData;
 		ConfigurationParameter->ICMP_PaddingLength = strlen((const char *)ConfigurationParameter->ICMP_PaddingData); //Load default padding data in macOS.
 	#endif
@@ -482,6 +482,7 @@ void ConfigurationTable::MonitorItemToUsing(
 	ConfigurationParameter->HeaderCheck_TCP = HeaderCheck_TCP;
 #endif
 	ConfigurationParameter->HeaderCheck_DNS = HeaderCheck_DNS;
+	ConfigurationParameter->DataCheck_Strict_RR_TTL = DataCheck_Strict_RR_TTL;
 
 //[Proxy] block
 	if (ConfigurationParameter->SOCKS_TargetDomain != nullptr && !SOCKS_TargetDomain->empty() && SOCKS_TargetDomain_Port > 0)
@@ -493,7 +494,7 @@ void ConfigurationTable::MonitorItemToUsing(
 		*ConfigurationParameter->SOCKS_TargetDomain = *SOCKS_TargetDomain;
 		ConfigurationParameter->SOCKS_TargetDomain_Port = SOCKS_TargetDomain_Port;
 	}
-	else if (SOCKS_TargetServer.Storage.ss_family > 0)
+	else if (SOCKS_TargetServer.Storage.ss_family != 0)
 	{
 	//Reset old items.
 		if (ConfigurationParameter->SOCKS_TargetDomain != nullptr)
@@ -549,7 +550,7 @@ void ConfigurationTable::MonitorItemReset(
 {
 //[Base] block
 	Version = 0;
-	FileRefreshTime = DEFAULT_FILEREFRESH_TIME;
+	FileRefreshTime = DEFAULT_FILE_REFRESH_TIME;
 
 //[Log] block
 	PrintLogLevel = DEFAULT_LOG_LEVEL;
@@ -612,6 +613,7 @@ void ConfigurationTable::MonitorItemReset(
 	HeaderCheck_TCP = false;
 #endif
 	HeaderCheck_DNS = false;
+	DataCheck_Strict_RR_TTL = false;
 
 //[Proxy] block
 	memset(&SOCKS_TargetServer, 0, sizeof(SOCKS_TargetServer));
