@@ -90,6 +90,10 @@ bool SSPI_Handshake(
 	std::vector<SOCKET_SELECTING_SERIAL_DATA> &SocketSelectingDataList, 
 	std::vector<ssize_t> &ErrorCodeList)
 {
+//Socket data check
+	if (SocketDataList.empty() || SocketSelectingDataList.empty() || ErrorCodeList.empty())
+		return false;
+	
 //Initializtion
 	SecBufferDesc OutputBufferDesc;
 	SecBuffer OutputBufferSec[1U]{0};
@@ -193,6 +197,10 @@ bool SSPI_HandshakeLoop(
 	std::vector<SOCKET_SELECTING_SERIAL_DATA> &SocketSelectingDataList, 
 	std::vector<ssize_t> &ErrorCodeList)
 {
+//Socket data check
+	if (SocketDataList.empty() || SocketSelectingDataList.empty() || ErrorCodeList.empty())
+		return false;
+
 //Initializtion
 	SecBufferDesc InputBufferDesc, OutputBufferDesc;
 	memset(&InputBufferDesc, 0, sizeof(InputBufferDesc));
@@ -338,6 +346,10 @@ bool SSPI_EncryptPacket(
 	SSPI_HANDLE_TABLE &SSPI_Handle, 
 	std::vector<SOCKET_SELECTING_SERIAL_DATA> &SocketSelectingDataList)
 {
+//Socket data check
+	if (SocketSelectingDataList.empty())
+		return false;
+
 //Send length check
 	if (SocketSelectingDataList.front().SendLen >= SSPI_Handle.StreamSizes.cbMaximumMessage)
 	{
@@ -396,6 +408,10 @@ bool SSPI_DecryptPacket(
 	SSPI_HANDLE_TABLE &SSPI_Handle, 
 	std::vector<SOCKET_SELECTING_SERIAL_DATA> &SocketSelectingDataList)
 {
+//Socket data check
+	if (SocketSelectingDataList.empty())
+		return false;
+
 //Initializtion
 	SecBufferDesc BufferDesc;
 	memset(&BufferDesc, 0, sizeof(BufferDesc));
@@ -415,7 +431,6 @@ bool SSPI_DecryptPacket(
 	BufferDesc.ulVersion = SECBUFFER_VERSION;
 	BufferDesc.pBuffers = BufferSec;
 	BufferDesc.cBuffers = SSPI_SECURE_BUFFER_NUM;
-	size_t Index = 0;
 
 //Decrypt data.
 	SSPI_Handle.LastReturnValue = DecryptMessage(
@@ -430,10 +445,17 @@ bool SSPI_DecryptPacket(
 	}
 	else {
 	//Scan all security buffers.
-		for (Index = 0;Index < SSPI_SECURE_BUFFER_NUM;++Index)
+		for (size_t Index = 0;Index < SSPI_SECURE_BUFFER_NUM;++Index)
 		{
 			if (BufferSec[Index].BufferType == SECBUFFER_DATA && BufferSec[Index].pvBuffer != nullptr && BufferSec[Index].cbBuffer >= sizeof(tls_base_record))
 			{
+			//Buffer initializtion
+				std::shared_ptr<uint8_t> RecvBuffer(new uint8_t[BufferSec[Index].cbBuffer]());
+				memset(RecvBuffer.get(), 0, BufferSec[Index].cbBuffer);
+				memcpy_s(RecvBuffer.get(), BufferSec[Index].cbBuffer, BufferSec[Index].pvBuffer, BufferSec[Index].cbBuffer);
+				SocketSelectingDataList.front().RecvBuffer.swap(RecvBuffer);
+				SocketSelectingDataList.front().RecvSize = BufferSec[Index].cbBuffer;
+				SocketSelectingDataList.front().RecvLen = BufferSec[Index].cbBuffer;
 				break;
 			}
 			else if (Index + 1U == SSPI_SECURE_BUFFER_NUM)
@@ -442,15 +464,6 @@ bool SSPI_DecryptPacket(
 				return false;
 			}
 		}
-
-	//Buffer initializtion
-		std::shared_ptr<uint8_t> RecvBuffer(new uint8_t[BufferSec[Index].cbBuffer]());
-		memset(RecvBuffer.get(), 0, BufferSec[Index].cbBuffer);
-		memcpy_s(RecvBuffer.get(), BufferSec[Index].cbBuffer, BufferSec[Index].pvBuffer, BufferSec[Index].cbBuffer);
-		SocketSelectingDataList.front().RecvBuffer.swap(RecvBuffer);
-		SocketSelectingDataList.front().RecvSize = BufferSec[Index].cbBuffer;
-		SocketSelectingDataList.front().RecvLen = BufferSec[Index].cbBuffer;
-		RecvBuffer.reset();
 	}
 
 	return true;
@@ -464,6 +477,10 @@ bool TLS_TransportSerial(
 	std::vector<SOCKET_SELECTING_SERIAL_DATA> &SocketSelectingDataList, 
 	std::vector<ssize_t> &ErrorCodeList)
 {
+//Socket data check
+	if (SocketDataList.empty() || SocketSelectingDataList.empty() || ErrorCodeList.empty())
+		return false;
+
 //TLS encrypt packet.
 	if (!SSPI_EncryptPacket(SSPI_Handle, SocketSelectingDataList) || SocketSelectingDataList.front().SendLen < sizeof(tls_base_record))
 	{
@@ -506,6 +523,10 @@ bool SSPI_ShutdownConnection(
 	std::vector<SOCKET_DATA> &SocketDataList, 
 	std::vector<ssize_t> &ErrorCodeList)
 {
+//Socket data check
+	if (SocketDataList.empty() || ErrorCodeList.empty())
+		return false;
+
 //Socket check
 	if (!SocketSetting(SocketDataList.front().Socket, SOCKET_SETTING_INVALID_CHECK, false, nullptr))
 		return false;
@@ -608,6 +629,16 @@ bool OpenSSL_PrintError(
 	const uint8_t *OpenSSL_ErrorMessage, 
 	const wchar_t *ErrorMessage)
 {
+//Message check
+	if (OpenSSL_ErrorMessage == nullptr || ErrorMessage == nullptr || 
+		strnlen((const char *)OpenSSL_ErrorMessage, OPENSSL_STATIC_BUFFER_SIZE) == 0 || 
+		wcsnlen(ErrorMessage, OPENSSL_STATIC_BUFFER_SIZE) == 0)
+	{
+		PrintError(LOG_LEVEL_2, LOG_ERROR_SYSTEM, L"Convert multiple byte or wide char string error", 0, nullptr, 0);
+		return false;
+	}
+
+//Convert message.
 	std::wstring Message;
 	if (MBS_To_WCS_String(OpenSSL_ErrorMessage, OPENSSL_STATIC_BUFFER_SIZE, Message))
 	{
@@ -758,6 +789,22 @@ bool OpenSSL_BIO_Initializtion(
 		return false;
 	}
 
+//Socket attribute settings
+	SYSTEM_SOCKET Socket = SSL_get_fd(OpenSSL_CTX.SessionData);
+	if (Socket <= 0)
+	{
+		OpenSSL_PrintError((const uint8_t *)ERR_error_string(ERR_get_error(), nullptr), L"OpenSSL BIO and SSL data attribute setting ");
+		return false;
+	}
+	else if (Socket > 0)
+	{
+		if (!SocketSetting(Socket, SOCKET_SETTING_TCP_FAST_OPEN, true, nullptr) || 
+			(OpenSSL_CTX.Protocol == AF_INET6 && !SocketSetting(Socket, SOCKET_SETTING_HOP_LIMITS_IPV6, true, nullptr)) || 
+			(OpenSSL_CTX.Protocol == AF_INET && (!SocketSetting(Socket, SOCKET_SETTING_HOP_LIMITS_IPV4, true, nullptr) || 
+			!SocketSetting(Socket, SOCKET_SETTING_DO_NOT_FRAGMENT, true, nullptr))))
+				return false;
+	}
+
 //SSL data attribute settings
 	ssize_t Result = 0;
 	SSL_set_mode(OpenSSL_CTX.SessionData, SSL_MODE_AUTO_RETRY);
@@ -787,8 +834,7 @@ bool OpenSSL_BIO_Initializtion(
 	if (Parameter.HTTP_CONNECT_TLS_Validation && Parameter.MBS_HTTP_CONNECT_TLS_SNI != nullptr && !Parameter.MBS_HTTP_CONNECT_TLS_SNI->empty())
 	{
 	//Get certificate paremeter.
-		X509_VERIFY_PARAM *X509_Param = nullptr;
-		X509_Param = SSL_get0_param(OpenSSL_CTX.SessionData);
+		auto X509_Param = SSL_get0_param(OpenSSL_CTX.SessionData);
 		if (X509_Param == nullptr)
 		{
 			OpenSSL_PrintError((const uint8_t *)ERR_error_string(ERR_get_error(), nullptr), L"OpenSSL hostname checking and validation ");
@@ -891,6 +937,10 @@ bool TLS_TransportSerial(
 	OPENSSL_CONTEXT_TABLE &OpenSSL_CTX, 
 	std::vector<SOCKET_SELECTING_SERIAL_DATA> &SocketSelectingDataList)
 {
+//Socket data check
+	if (SocketSelectingDataList.empty())
+		return false;
+
 //Initializtion
 	ssize_t RecvLen = 0;
 	size_t Timeout = 0;

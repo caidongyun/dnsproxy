@@ -1908,7 +1908,7 @@ typedef struct _dns_record_a_
 	uint16_t              Classes;
 	uint32_t              TTL;
 	uint16_t              Length;
-	in_addr               Addr;
+	in_addr               Address;
 }dns_record_a, *pdns_record_a;
 
 /* Domain Name System/DNS Canonical Name/CNAME Records
@@ -1997,7 +1997,7 @@ typedef struct _dns_record_soa_
 */
 typedef struct _dns_record_ptr_
 {
-	uint16_t              PTR;
+	uint16_t              Pointer;
 	uint16_t              Type;
 	uint16_t              Classes;
 	uint32_t              TTL;
@@ -2078,7 +2078,7 @@ typedef struct _dns_record_aaaa_
 	uint16_t              Classes;
 	uint32_t              TTL;
 	uint16_t              Length;
-	in6_addr              Addr;
+	in6_addr              Address;
 }dns_record_aaaa, *pdns_record_aaaa;
 
 /* Domain Name System/DNS Server Selection/SRV Resource Records
@@ -2147,7 +2147,7 @@ typedef struct _dns_record_opt_
 }dns_record_opt, *pdns_record_opt, edns_header, *pedns_header;
 
 /* Extension Mechanisms for Domain Name System/DNS, Client subnet in EDNS requests
-* Client Subnet in DNS Requests draft-vandergaast-edns-client-subnet-02(https://tools.ietf.org/html/draft-ietf-dnsop-edns-client-subnet-08)
+* RFC 7871, Client Subnet in DNS Queries(https://tools.ietf.org/html/rfc7871)
 
                     1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 3 3 3
 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2
@@ -2162,19 +2162,23 @@ typedef struct _dns_record_opt_
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 */
-#define EDNS_CODE_LLQ                 0x0001   //Long-lived query
-#define EDNS_CODE_UL                  0x0002   //Update lease
-#define EDNS_CODE_NSID                0x0003   //Name Server Identifier (RFC 5001)
-#define EDNS_CODE_OWNER               0x0004   //Owner, reserved
-#define EDNS_CODE_DAU                 0x0005   //DNSSEC Algorithm Understood (RFC 6975)
-#define EDNS_CODE_DHU                 0x0006   //DS Hash Understood (RFC 6975)
-#define EDNS_CODE_N3U                 0x0007   //DSEC3 Hash Understood (RFC 6975)
-#define EDNS_CODE_CSUBNET             0x0008   //Client subnet as assigned by IANA
-#define EDNS_CODE_EDNS_EXPIRE         0x0009   //EDNS Expire (RFC 7314)
+#define EDNS_CODE_LLQ                            0x0001   //Long-lived query
+#define EDNS_CODE_UL                             0x0002   //Update lease
+#define EDNS_CODE_NSID                           0x0003   //Name Server Identifier (RFC 5001)
+#define EDNS_CODE_OWNER                          0x0004   //Owner, reserved
+#define EDNS_CODE_DAU                            0x0005   //DNSSEC Algorithm Understood (RFC 6975)
+#define EDNS_CODE_DHU                            0x0006   //DS Hash Understood (RFC 6975)
+#define EDNS_CODE_N3U                            0x0007   //DSEC3 Hash Understood (RFC 6975)
+#define EDNS_CODE_CSUBNET                        0x0008   //Client subnet as assigned by IANA
+#define EDNS_CODE_EDNS_EXPIRE                    0x0009   //EDNS Expire (RFC 7314)
 
 //About Address Family Numbers, visit https://www.iana.org/assignments/address-family-numbers/address-family-numbers.xhtml.
-#define ADDRESS_FAMILY_IPV4           0x0001
-#define ADDRESS_FAMILY_IPV6           0x0002
+#define ADDRESS_FAMILY_IPV4                      0x0001
+#define ADDRESS_FAMILY_IPV6                      0x0002
+
+//Netmask Source bits
+#define EDNS_CLIENT_SUBNET_NETMASK_SOURCE_IPV6   56U
+#define EDNS_CLIENT_SUBNET_NETMASK_SOURCE_IPV4   24U
 typedef struct _edns_client_subnet_
 {
 	uint16_t              Code;
@@ -2466,6 +2470,7 @@ typedef struct _dns_record_caa_
 // DNSCrypt, A protocol to improve DNS security(https://dnscrypt.org)
 #define DNSCURVE_MAGIC_QUERY_LEN          8U
 #define DNSCURVE_MAGIC_QUERY_HEX_LEN      16U
+#define DNSCURVE_PAYLOAD_MULTIPLE_TIME    64U
 #define DNSCRYPT_RECEIVE_MAGIC            ("r6fnvWj8")                   //Receive Magic Number
 #define DNSCRYPT_CERT_MAGIC               ("DNSC")                       //Signature Magic Number
 #define DNSCRYPT_PADDING_SIGN             0x80
@@ -2491,8 +2496,9 @@ typedef struct _dns_record_caa_
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 */
-#define DNSCURVE_VERSION_MAJOR     0x0001    //Latest major version of DNSCurve
-#define DNSCURVE_VERSION_MINOR     0         //Latest minor version of DNSCurve
+#define DNSCURVE_VERSION_MINOR                   0        //DNSCurve minor version
+#define DNSCURVE_ES_X25519_XSALSA20_POLY1305     0x0001   //DNSCurve es version of X25519-XSalsa20Poly1305
+#define DNSCURVE_ES_X25519_XCHACHA20_POLY1305    0x0002   //DNSCurve es version of X25519-XChacha20Poly1305
 typedef struct _dnscurve_txt_hdr_
 {
 	uint32_t              CertMagicNumber;

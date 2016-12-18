@@ -29,7 +29,7 @@ Client -> Server:
 * Variable encryption data ...
 
 Server -> Client:
-*  8 bytes: The string r6fnvWJ8 (DNSCRYPT_MAGIC_RESPONSE)
+*  8 bytes: The string "r6fnvWJ8" (DNSCRYPT_MAGIC_RESPONSE)
 * 12 bytes: The client's nonce (crypto_box_NONCEBYTES / 2)
 * 12 bytes: A server-selected nonce extension (crypto_box_NONCEBYTES / 2)
 * 16 bytes: Poly1305 MAC (crypto_box_ZEROBYTES - crypto_box_BOXZEROBYTES)
@@ -167,7 +167,7 @@ bool DNSCurve_TCP_SignatureRequest(
 	sodium_memzero(&TCPSocketDataList.front(), sizeof(TCPSocketDataList.front()));
 
 //Make packet data(Part 1).
-	size_t DataLength = sizeof(dns_tcp_hdr);
+	auto DataLength = sizeof(dns_tcp_hdr);
 	const auto DNS_TCP_Header = (pdns_tcp_hdr)SendBuffer.get();
 #if defined(ENABLE_PCAP)
 	DNS_TCP_Header->ID = Parameter.DomainTest_ID;
@@ -253,7 +253,7 @@ bool DNSCurve_TCP_SignatureRequest(
 			goto JumpToRestart;
 		}
 		else {
-		//Check Signature.
+		//Check signature.
 			if (PacketTarget == nullptr || !DNSCruveGetSignatureData(RecvBuffer.get() + DNS_PACKET_RR_LOCATE(RecvBuffer.get()), ServerType) || 
 				CheckEmptyBuffer(PacketTarget->ServerFingerprint, crypto_box_PUBLICKEYBYTES) || 
 				CheckEmptyBuffer(PacketTarget->SendMagicNumber, DNSCURVE_MAGIC_QUERY_LEN))
@@ -309,7 +309,7 @@ bool DNSCurve_UDP_SignatureRequest(
 
 //Make packet data(Part 1).
 	const auto DNS_Header = (pdns_hdr)SendBuffer.get();
-	size_t DataLength = sizeof(dns_hdr);
+	auto DataLength = sizeof(dns_hdr);
 #if defined(ENABLE_PCAP)
 	DNS_Header->ID = Parameter.DomainTest_ID;
 #else
@@ -389,7 +389,7 @@ bool DNSCurve_UDP_SignatureRequest(
 			goto JumpToRestart;
 		}
 		else {
-		//Check Signature.
+		//Check signature.
 			if (PacketTarget == nullptr || !DNSCruveGetSignatureData(RecvBuffer.get() + DNS_PACKET_RR_LOCATE(RecvBuffer.get()), ServerType) || 
 				CheckEmptyBuffer(PacketTarget->ServerFingerprint, crypto_box_PUBLICKEYBYTES) || 
 				CheckEmptyBuffer(PacketTarget->SendMagicNumber, DNSCURVE_MAGIC_QUERY_LEN))
@@ -441,8 +441,7 @@ size_t DNSCurve_TCP_RequestSingle(
 //Initialization
 	std::vector<SOCKET_DATA> TCPSocketDataList(1U);
 	sodium_memzero(&TCPSocketDataList.front(), sizeof(TCPSocketDataList.front()));
-	DNSCURVE_SOCKET_SELECTING_DATA TCPSocketSelectingData;
-	memset(&TCPSocketSelectingData, 0, sizeof(TCPSocketSelectingData));
+	DNSCURVE_SOCKET_SELECTING_TABLE TCPSocketSelectingData;
 	PDNSCURVE_SERVER_DATA PacketTarget = nullptr;
 	bool *IsAlternate = nullptr;
 	size_t *AlternateTimeoutTimes = nullptr;
@@ -461,17 +460,17 @@ size_t DNSCurve_TCP_RequestSingle(
 
 //Make Precomputation Key between client and server.
 	uint8_t *Client_PublicKey = nullptr, *PrecomputationKey = nullptr;
-	std::shared_ptr<uint8_t> Client_PublicKey_PTR;
-	DNSCURVE_HEAP_BUFFER_TABLE<uint8_t> PrecomputationKeyPTR;
+	std::shared_ptr<uint8_t> Client_PublicKey_Buffer;
+	DNSCURVE_HEAP_BUFFER_TABLE<uint8_t> PrecomputationKeyBuffer;
 	if (DNSCurveParameter.IsEncryption && DNSCurveParameter.IsClientEphemeralKey)
 	{
-		std::shared_ptr<uint8_t> Client_PublicKey_PTR_Temp(new uint8_t[crypto_box_PUBLICKEYBYTES]());
-		Client_PublicKey_PTR.swap(Client_PublicKey_PTR_Temp);
+		std::shared_ptr<uint8_t> Client_PublicKey_Buffer_Temp(new uint8_t[crypto_box_PUBLICKEYBYTES]());
+		Client_PublicKey_Buffer.swap(Client_PublicKey_Buffer_Temp);
 
-		DNSCURVE_HEAP_BUFFER_TABLE<uint8_t> PrecomputationKeyPTR_Temp(crypto_box_BEFORENMBYTES);
-		PrecomputationKeyPTR_Temp.Swap(PrecomputationKeyPTR);
-		Client_PublicKey = Client_PublicKey_PTR.get();
-		PrecomputationKey = PrecomputationKeyPTR.Buffer;
+		DNSCURVE_HEAP_BUFFER_TABLE<uint8_t> PrecomputationKeyBuffer_Temp(crypto_box_BEFORENMBYTES);
+		PrecomputationKeyBuffer_Temp.Swap(PrecomputationKeyBuffer);
+		Client_PublicKey = Client_PublicKey_Buffer.get();
+		PrecomputationKey = PrecomputationKeyBuffer.Buffer;
 		if (!DNSCurvePrecomputationKeySetting(PrecomputationKey, Client_PublicKey, PacketTarget->ServerFingerprint))
 		{
 			SocketSetting(TCPSocketDataList.front().Socket, SOCKET_SETTING_CLOSE, false, nullptr);
@@ -498,7 +497,7 @@ size_t DNSCurve_TCP_RequestSingle(
 	}
 
 //Socket selecting structure initialization
-	std::vector<DNSCURVE_SOCKET_SELECTING_DATA> TCPSocketSelectingList;
+	std::vector<DNSCURVE_SOCKET_SELECTING_TABLE> TCPSocketSelectingList;
 	if (DNSCurveParameter.IsEncryption) //Encryption mode
 	{
 		TCPSocketSelectingData.PrecomputationKey = PrecomputationKey;
@@ -534,23 +533,23 @@ size_t DNSCurve_TCP_RequestMultiple(
 {
 //Key initialization
 	uint8_t *PrecomputationKey = nullptr, *Alternate_PrecomputationKey = nullptr;
-	DNSCURVE_HEAP_BUFFER_TABLE<uint8_t> PrecomputationKeyPTR, Alternate_PrecomputationKeyPTR;
+	DNSCURVE_HEAP_BUFFER_TABLE<uint8_t> PrecomputationKeyBuffer, Alternate_PrecomputationKeyBuffer;
 	if (DNSCurveParameter.IsEncryption && DNSCurveParameter.IsClientEphemeralKey)
 	{
-		DNSCURVE_HEAP_BUFFER_TABLE<uint8_t> PrecomputationKeyPTR_Temp(crypto_box_BEFORENMBYTES), Alternate_PrecomputationKeyPTR_Temp(crypto_box_BEFORENMBYTES);
+		DNSCURVE_HEAP_BUFFER_TABLE<uint8_t> PrecomputationKeyBuffer_Temp(crypto_box_BEFORENMBYTES), Alternate_PrecomputationKeyBuffer_Temp(crypto_box_BEFORENMBYTES);
 
 	//Main
-		PrecomputationKeyPTR_Temp.Swap(PrecomputationKeyPTR);
-		PrecomputationKey = PrecomputationKeyPTR.Buffer;
+		PrecomputationKeyBuffer_Temp.Swap(PrecomputationKeyBuffer);
+		PrecomputationKey = PrecomputationKeyBuffer.Buffer;
 
 	//Alternate
-		Alternate_PrecomputationKeyPTR_Temp.Swap(Alternate_PrecomputationKeyPTR);
-		Alternate_PrecomputationKey = Alternate_PrecomputationKeyPTR.Buffer;
+		Alternate_PrecomputationKeyBuffer_Temp.Swap(Alternate_PrecomputationKeyBuffer);
+		Alternate_PrecomputationKey = Alternate_PrecomputationKeyBuffer.Buffer;
 	}
 
 //Initialization(Part 1)
 	std::vector<SOCKET_DATA> TCPSocketDataList;
-	std::vector<DNSCURVE_SOCKET_SELECTING_DATA> TCPSocketSelectingList;
+	std::vector<DNSCURVE_SOCKET_SELECTING_TABLE> TCPSocketSelectingList;
 	std::shared_ptr<uint8_t> SendBuffer, Alternate_SendBuffer;
 	PDNSCURVE_SERVER_DATA PacketTarget = nullptr;
 	size_t DataLength = 0, Alternate_DataLength = 0;
@@ -597,7 +596,7 @@ size_t DNSCurve_TCP_RequestMultiple(
 
 //Socket selecting
 	ssize_t ErrorCode = 0;
-	const ssize_t RecvLen = SocketSelectingOnce(REQUEST_PROCESS_DNSCURVE_MAIN, IPPROTO_TCP, TCPSocketDataList, &TCPSocketSelectingList, nullptr, 0, OriginalRecv, RecvSize, &ErrorCode);
+	const auto RecvLen = SocketSelectingOnce(REQUEST_PROCESS_DNSCURVE_MAIN, IPPROTO_TCP, TCPSocketDataList, &TCPSocketSelectingList, nullptr, 0, OriginalRecv, RecvSize, &ErrorCode);
 	if (ErrorCode == WSAETIMEDOUT && !Parameter.AlternateMultipleRequest) //Mark timeout.
 	{
 		if (TCPSocketDataList.front().AddrLen == sizeof(sockaddr_in6))
@@ -619,8 +618,7 @@ size_t DNSCurve_UDP_RequestSingle(
 //Initialization
 	std::vector<SOCKET_DATA> UDPSocketDataList(1U);
 	sodium_memzero(&UDPSocketDataList.front(), sizeof(UDPSocketDataList.front()));
-	DNSCURVE_SOCKET_SELECTING_DATA UDPSocketSelectingData;
-	memset(&UDPSocketSelectingData, 0, sizeof(UDPSocketSelectingData));
+	DNSCURVE_SOCKET_SELECTING_TABLE UDPSocketSelectingData;
 	PDNSCURVE_SERVER_DATA PacketTarget = nullptr;
 	bool *IsAlternate = nullptr;
 	size_t *AlternateTimeoutTimes = nullptr;
@@ -639,14 +637,14 @@ size_t DNSCurve_UDP_RequestSingle(
 
 //Make Precomputation Key between client and server.
 	uint8_t *Client_PublicKey = nullptr, *PrecomputationKey = nullptr;
-	std::shared_ptr<uint8_t> Client_PublicKey_PTR, PrecomputationKeyPTR;
+	std::shared_ptr<uint8_t> Client_PublicKey_Buffer, PrecomputationKeyBuffer;
 	if (DNSCurveParameter.IsEncryption && DNSCurveParameter.IsClientEphemeralKey)
 	{
-		std::shared_ptr<uint8_t> Client_PublicKey_PTR_Temp(new uint8_t[crypto_box_PUBLICKEYBYTES]()), PrecomputationKeyPTR_Temp(new uint8_t[crypto_box_BEFORENMBYTES]());
-		Client_PublicKey_PTR.swap(Client_PublicKey_PTR_Temp);
-		PrecomputationKeyPTR.swap(PrecomputationKeyPTR_Temp);
-		Client_PublicKey = Client_PublicKey_PTR.get();
-		PrecomputationKey = PrecomputationKeyPTR.get();
+		std::shared_ptr<uint8_t> Client_PublicKey_Buffer_Temp(new uint8_t[crypto_box_PUBLICKEYBYTES]()), PrecomputationKeyBuffer_Temp(new uint8_t[crypto_box_BEFORENMBYTES]());
+		Client_PublicKey_Buffer.swap(Client_PublicKey_Buffer_Temp);
+		PrecomputationKeyBuffer.swap(PrecomputationKeyBuffer_Temp);
+		Client_PublicKey = Client_PublicKey_Buffer.get();
+		PrecomputationKey = PrecomputationKeyBuffer.get();
 		if (!DNSCurvePrecomputationKeySetting(PrecomputationKey, Client_PublicKey, PacketTarget->ServerFingerprint))
 		{
 			SocketSetting(UDPSocketDataList.front().Socket, SOCKET_SETTING_CLOSE, false, nullptr);
@@ -674,7 +672,7 @@ size_t DNSCurve_UDP_RequestSingle(
 	}
 
 //Socket selecting structure initialization
-	std::vector<DNSCURVE_SOCKET_SELECTING_DATA> UDPSocketSelectingList;
+	std::vector<DNSCURVE_SOCKET_SELECTING_TABLE> UDPSocketSelectingList;
 	if (DNSCurveParameter.IsEncryption) //Encryption mode
 	{
 		UDPSocketSelectingData.PrecomputationKey = PrecomputationKey;
@@ -714,23 +712,23 @@ size_t DNSCurve_UDP_RequestMultiple(
 {
 //Key initialization
 	uint8_t *PrecomputationKey = nullptr, *Alternate_PrecomputationKey = nullptr;
-	DNSCURVE_HEAP_BUFFER_TABLE<uint8_t> PrecomputationKeyPTR, Alternate_PrecomputationKeyPTR;
+	DNSCURVE_HEAP_BUFFER_TABLE<uint8_t> PrecomputationKeyBuffer, Alternate_PrecomputationKeyBuffer;
 	if (DNSCurveParameter.IsEncryption && DNSCurveParameter.IsClientEphemeralKey)
 	{
-		DNSCURVE_HEAP_BUFFER_TABLE<uint8_t> PrecomputationKeyPTR_Temp(crypto_box_BEFORENMBYTES), Alternate_PrecomputationKeyPTR_Temp(crypto_box_BEFORENMBYTES);
+		DNSCURVE_HEAP_BUFFER_TABLE<uint8_t> PrecomputationKeyBuffer_Temp(crypto_box_BEFORENMBYTES), Alternate_PrecomputationKeyBuffer_Temp(crypto_box_BEFORENMBYTES);
 
 	//Main
-		PrecomputationKeyPTR_Temp.Swap(PrecomputationKeyPTR);
-		PrecomputationKey = PrecomputationKeyPTR.Buffer;
+		PrecomputationKeyBuffer_Temp.Swap(PrecomputationKeyBuffer);
+		PrecomputationKey = PrecomputationKeyBuffer.Buffer;
 
 	//Alternate
-		Alternate_PrecomputationKeyPTR_Temp.Swap(Alternate_PrecomputationKeyPTR);
-		Alternate_PrecomputationKey = Alternate_PrecomputationKeyPTR.Buffer;
+		Alternate_PrecomputationKeyBuffer_Temp.Swap(Alternate_PrecomputationKeyBuffer);
+		Alternate_PrecomputationKey = Alternate_PrecomputationKeyBuffer.Buffer;
 	}
 
 //Initialization(Part 1)
 	std::vector<SOCKET_DATA> UDPSocketDataList;
-	std::vector<DNSCURVE_SOCKET_SELECTING_DATA> UDPSocketSelectingList;
+	std::vector<DNSCURVE_SOCKET_SELECTING_TABLE> UDPSocketSelectingList;
 	std::shared_ptr<uint8_t> SendBuffer, Alternate_SendBuffer;
 	PDNSCURVE_SERVER_DATA PacketTarget = nullptr;
 	size_t DataLength = 0, Alternate_DataLength = 0;
@@ -777,7 +775,7 @@ size_t DNSCurve_UDP_RequestMultiple(
 
 //Socket selecting
 	ssize_t ErrorCode = 0;
-	const ssize_t RecvLen = SocketSelectingOnce(REQUEST_PROCESS_DNSCURVE_MAIN, IPPROTO_UDP, UDPSocketDataList, &UDPSocketSelectingList, nullptr, 0, OriginalRecv, RecvSize, &ErrorCode);
+	const auto RecvLen = SocketSelectingOnce(REQUEST_PROCESS_DNSCURVE_MAIN, IPPROTO_UDP, UDPSocketDataList, &UDPSocketSelectingList, nullptr, 0, OriginalRecv, RecvSize, &ErrorCode);
 	if (ErrorCode == WSAETIMEDOUT && !Parameter.AlternateMultipleRequest) //Mark timeout.
 	{
 		if (UDPSocketDataList.front().AddrLen == sizeof(sockaddr_in6))

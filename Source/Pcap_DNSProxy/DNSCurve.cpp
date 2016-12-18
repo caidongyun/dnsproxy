@@ -43,37 +43,39 @@ Using TCP protocol:
 
 #if defined(ENABLE_LIBSODIUM)
 //DNSCurve check padding data length
-ssize_t DNSCurvePaddingData(
-	const bool SetPadding, 
+size_t DNSCurvePaddingData(
+	const bool IsSetPadding, 
 	uint8_t * const Buffer, 
-	const ssize_t Length)
+	const size_t Length, 
+	const size_t BufferSize)
 {
-//Set padding data sign.
-	if (SetPadding)
+//Length check
+	if (BufferSize < Length)
 	{
+		return EXIT_FAILURE;
+	}
+//Set padding data sign.
+	else if (IsSetPadding && BufferSize > Length)
+	{
+	//Padding starts with a byte valued 0x80
 		Buffer[Length] = (uint8_t)DNSCRYPT_PADDING_SIGN_STRING;
+
+	//Set NULL bytes in padding data.
+		for (size_t Index = Length + 1U;Index < BufferSize;++Index)
+			Buffer[Index] = 0;
 	}
 //Check padding data sign.
-	else if (Length >= (ssize_t)DNS_PACKET_MINSIZE)
+	else if (Length >= DNS_PACKET_MINSIZE)
 	{
-		ssize_t Index = 0;
-
-	//Check padding data sign(0x80).
-		for (Index = Length - 1U;Index >= (ssize_t)DNS_PACKET_MINSIZE;--Index)
+	//Prior to encryption, queries are padded using the ISO/IEC 7816-4 format.The padding starts with a byte valued 0x80 followed by a variable number of NULL bytes.
+		for (size_t Index = Length - 1U;Index >= DNS_PACKET_MINSIZE;--Index)
 		{
 			if (Buffer[Index] == DNSCRYPT_PADDING_SIGN)
 				return Index;
 		}
-
-	//Check no null sign.
-		for (Index = Length - 1U;Index >= (ssize_t)DNS_PACKET_MINSIZE;--Index)
-		{
-			if (Buffer[Index] > 0)
-				return Index;
-		}
 	}
 
-	return 0;
+	return EXIT_SUCCESS;
 }
 
 //DNSCurve verify keypair
@@ -93,7 +95,7 @@ bool DNSCurveVerifyKeypair(
 	else 
 		return false;
 
-//Make DNSCurve Test Nonce, 0x00 - 0x23(ASCII).
+//Make DNSCurve test nonce, 0x00 - 0x23(ASCII).
 	uint8_t Nonce[crypto_box_NONCEBYTES]{0};
 	for (size_t Index = 0;Index < crypto_box_NONCEBYTES;++Index)
 		*(Nonce + Index) = (uint8_t)Index;
@@ -168,6 +170,11 @@ PDNSCURVE_SERVER_DATA DNSCurveSelectSignatureTargetSocket(
 	size_t &ServerType, 
 	std::vector<SOCKET_DATA> &SocketDataList)
 {
+//Socket data check
+	if (SocketDataList.empty())
+		return nullptr;
+
+//Select target.
 	PDNSCURVE_SERVER_DATA PacketTarget = nullptr;
 	if (Protocol == AF_INET6)
 	{
@@ -285,7 +292,7 @@ void DNSCurveSocketPrecomputation(
 	uint8_t ** const Alternate_PrecomputationKey, 
 	DNSCURVE_SERVER_DATA ** const PacketTarget, 
 	std::vector<SOCKET_DATA> &SocketDataList, 
-	std::vector<DNSCURVE_SOCKET_SELECTING_DATA> &SocketSelectingList, 
+	std::vector<DNSCURVE_SOCKET_SELECTING_TABLE> &SocketSelectingList, 
 	std::shared_ptr<uint8_t> &SendBuffer, 
 	size_t &DataLength, 
 	std::shared_ptr<uint8_t> &Alternate_SendBuffer, 
@@ -299,13 +306,12 @@ void DNSCurveSocketPrecomputation(
 
 //Initialization
 	SOCKET_DATA SocketDataTemp;
-	DNSCURVE_SOCKET_SELECTING_DATA SocketSelectingDataTemp;
+	DNSCURVE_SOCKET_SELECTING_TABLE SocketSelectingDataTemp;
 	memset(&SocketDataTemp, 0, sizeof(SocketDataTemp));
-	memset(&SocketSelectingDataTemp, 0, sizeof(SocketSelectingDataTemp));
 	std::vector<SOCKET_DATA> Alternate_SocketDataList;
-	std::vector<DNSCURVE_SOCKET_SELECTING_DATA> Alternate_SocketSelectingList;
-	uint8_t Client_PublicKey_PTR[crypto_box_PUBLICKEYBYTES]{0};
-	auto Client_PublicKey = Client_PublicKey_PTR;
+	std::vector<DNSCURVE_SOCKET_SELECTING_TABLE> Alternate_SocketSelectingList;
+	uint8_t Client_PublicKey_Buffer[crypto_box_PUBLICKEYBYTES]{0};
+	auto Client_PublicKey = Client_PublicKey_Buffer;
 	size_t Index = 0, LoopLimits = 0;
 	uint16_t InnerProtocol = 0;
 	if (Protocol == IPPROTO_TCP)
@@ -584,42 +590,35 @@ size_t DNSCurvePacketEncryption(
 //Encryption mode
 	if (DNSCurveParameter.IsEncryption)
 	{
-		uint8_t Nonce[crypto_box_NONCEBYTES]{0};
-
 	//Make nonce.
-		*(uint32_t *)Nonce = randombytes_random();
-		*(uint32_t *)(Nonce + sizeof(uint32_t)) = randombytes_random();
-		*(uint32_t *)(Nonce + sizeof(uint32_t) * 2U) = randombytes_random();
+		uint8_t Nonce[crypto_box_NONCEBYTES]{0};
+		for (size_t Index = 0;Index < crypto_box_HALF_NONCEBYTES;Index += sizeof(uint32_t))
+			*(uint32_t *)(Nonce + Index) = randombytes_random();
 		sodium_memzero(Nonce + crypto_box_HALF_NONCEBYTES, crypto_box_HALF_NONCEBYTES);
 
-	//Make a crypto box.
+	//Buffer initialization
 		std::shared_ptr<uint8_t> Buffer;
-		if (Protocol == IPPROTO_TCP)
+		if (Protocol == IPPROTO_TCP || Protocol == IPPROTO_UDP)
 		{
-			std::shared_ptr<uint8_t> BufferTemp(new uint8_t[DNSCurveParameter.DNSCurvePayloadSize - DNSCRYPT_BUFFER_RESERVE_LEN]());
-			sodium_memzero(BufferTemp.get(), DNSCurveParameter.DNSCurvePayloadSize - DNSCRYPT_BUFFER_RESERVE_LEN);
-			Buffer.swap(BufferTemp);
-		}
-		else if (Protocol == IPPROTO_UDP)
-		{
-			std::shared_ptr<uint8_t> BufferTemp(new uint8_t[DNSCurveParameter.DNSCurvePayloadSize - DNSCRYPT_BUFFER_RESERVE_LEN]());
-			sodium_memzero(BufferTemp.get(), DNSCurveParameter.DNSCurvePayloadSize - DNSCRYPT_BUFFER_RESERVE_LEN);
+			std::shared_ptr<uint8_t> BufferTemp(new uint8_t[DNSCurveParameter.DNSCurvePayloadSize - DNSCRYPT_BUFFER_RESERVED_LEN]());
+			sodium_memzero(BufferTemp.get(), DNSCurveParameter.DNSCurvePayloadSize - DNSCRYPT_BUFFER_RESERVED_LEN);
 			Buffer.swap(BufferTemp);
 		}
 		else {
 			return EXIT_FAILURE;
 		}
 
+	//Make a crypto box.
 		memcpy_s(Buffer.get() + crypto_box_ZEROBYTES, DNSCurveParameter.DNSCurvePayloadSize - crypto_box_ZEROBYTES, OriginalSend, Length);
-		DNSCurvePaddingData(true, Buffer.get(), crypto_box_ZEROBYTES + Length);
+		DNSCurvePaddingData(true, Buffer.get(), crypto_box_ZEROBYTES + Length, DNSCurveParameter.DNSCurvePayloadSize - DNSCRYPT_BUFFER_RESERVED_LEN);
 
 	//Encrypt data.
 		if (Protocol == IPPROTO_TCP)
 		{
 			if (crypto_box_afternm(
-					SendBuffer + DNSCRYPT_BUFFER_RESERVE_TCP_LEN, 
+					SendBuffer + DNSCRYPT_BUFFER_RESERVED_TCP_LEN, 
 					Buffer.get(), 
-					DNSCurveParameter.DNSCurvePayloadSize - DNSCRYPT_BUFFER_RESERVE_TCP_LEN, 
+					DNSCurveParameter.DNSCurvePayloadSize - DNSCRYPT_BUFFER_RESERVED_TCP_LEN, 
 					Nonce, 
 					PrecomputationKey) != 0)
 						return EXIT_FAILURE;
@@ -627,9 +626,9 @@ size_t DNSCurvePacketEncryption(
 		else if (Protocol == IPPROTO_UDP)
 		{
 			if (crypto_box_afternm(
-					SendBuffer + DNSCRYPT_BUFFER_RESERVE_LEN, 
+					SendBuffer + DNSCRYPT_BUFFER_RESERVED_LEN, 
 					Buffer.get(), 
-					DNSCurveParameter.DNSCurvePayloadSize - DNSCRYPT_BUFFER_RESERVE_LEN, 
+					DNSCurveParameter.DNSCurvePayloadSize - DNSCRYPT_BUFFER_RESERVED_LEN, 
 					Nonce, 
 					PrecomputationKey) != 0)
 						return EXIT_FAILURE;
@@ -683,7 +682,7 @@ ssize_t DNSCurvePacketDecryption(
 	const size_t RecvSize, 
 	const ssize_t Length)
 {
-	ssize_t DataLength = Length;
+	auto DataLength = Length;
 
 //Encryption mode
 	if (DNSCurveParameter.IsEncryption)
@@ -711,7 +710,7 @@ ssize_t DNSCurvePacketDecryption(
 		sodium_memzero(OriginalRecv + Length - (DNSCURVE_MAGIC_QUERY_LEN + crypto_box_NONCEBYTES), RecvSize - (Length - (DNSCURVE_MAGIC_QUERY_LEN + crypto_box_NONCEBYTES)));
 
 	//Check padding data and responses check.
-		DataLength = DNSCurvePaddingData(false, OriginalRecv, Length);
+		DataLength = DNSCurvePaddingData(false, OriginalRecv, Length, RecvSize);
 		if (DataLength < (ssize_t)DNS_PACKET_MINSIZE)
 			return EXIT_FAILURE;
 	}
@@ -739,7 +738,7 @@ bool DNSCruveGetSignatureData(
 		((pdns_record_txt)Buffer)->TXT_Length == DNSCRYPT_RECORD_TXT_LEN)
 	{
 		if (sodium_memcmp(&((pdnscurve_txt_hdr)(Buffer + sizeof(dns_record_txt)))->CertMagicNumber, DNSCRYPT_CERT_MAGIC, sizeof(uint16_t)) == 0 && 
-			ntohs(((pdnscurve_txt_hdr)(Buffer + sizeof(dns_record_txt)))->MajorVersion) == DNSCURVE_VERSION_MAJOR && 
+			ntohs(((pdnscurve_txt_hdr)(Buffer + sizeof(dns_record_txt)))->MajorVersion) == DNSCURVE_ES_X25519_XSALSA20_POLY1305 && 
 			ntohs(((pdnscurve_txt_hdr)(Buffer + sizeof(dns_record_txt)))->MinorVersion) == DNSCURVE_VERSION_MINOR)
 		{
 		//Get Send Magic Number, Server Fingerprint and Precomputation Key.
@@ -747,7 +746,7 @@ bool DNSCruveGetSignatureData(
 			if (!DNSCurvePacketTargetSetting(ServerType, &PacketTarget))
 				return false;
 
-		//Check Signature.
+		//Check signature.
 			std::shared_ptr<uint8_t> DeBuffer(new uint8_t[PACKET_MAXSIZE]());
 			memset(DeBuffer.get(), 0, PACKET_MAXSIZE);
 			unsigned long long SignatureLength = 0;

@@ -68,7 +68,7 @@ void ClearModificatingListData(
 	const size_t FileIndex);
 void GetParameterListData(
 	std::vector<std::string> &ListData, 
-	const std::string Data, 
+	const std::string &Data, 
 	const size_t DataOffset, 
 	const size_t Length, 
 	const uint8_t SeparatedSign, 
@@ -88,23 +88,16 @@ bool ReadParameterData(
 	const size_t FileIndex, 
 	const bool IsFirstRead, 
 	const size_t Line);
-#if defined(PLATFORM_WIN)
 bool ReadName_PathFile(
 	std::string Data, 
 	const size_t DataOffset, 
-	const bool Path, 
+	const bool IsPath, 
 	std::vector<std::wstring> * const ListData, 
+#if (defined(PLATFORM_LINUX) || defined(PLATFORM_MACOS))
+	std::vector<std::string> * const MBS_ListData, 
+#endif
 	const size_t FileIndex, 
 	const size_t Line);
-#elif (defined(PLATFORM_LINUX) || defined(PLATFORM_MACOS))
-bool ReadName_PathFile(
-	std::string Data, 
-	const size_t DataOffset, 
-	const bool Path, 
-	std::vector<std::wstring> * const ListData, 
-	std::vector<std::string> * const MBS_ListData, 
-	const size_t FileIndex, const size_t Line);
-#endif
 bool ReadMultipleAddresses(
 	const uint16_t Protocol, 
 	std::string Data, 
@@ -115,7 +108,7 @@ bool ReadMultipleAddresses(
 bool Read_SOCKS_AddressDomain(
 	std::string Data, 
 	const size_t DataOffset, 
-	CONFIGURATION_TABLE * const ParameterPTR, 
+	CONFIGURATION_TABLE * const ParameterPointer, 
 	const size_t FileIndex, 
 	const size_t Line);
 #if defined(ENABLE_PCAP)
@@ -169,6 +162,7 @@ bool ReadAddressPrefixBlock(
 	std::string OriginalData, 
 	const size_t DataOffset, 
 	ADDRESS_PREFIX_BLOCK * const AddressPrefix, 
+	const std::vector<FILE_DATA> &FileList, 
 	const size_t FileIndex, 
 	const size_t Line);
 bool ReadMainIPFilterData(

@@ -155,7 +155,7 @@ bool SocketSetting(
 
 		//Socket timeout options
 		#if defined(PLATFORM_WIN)
-			const DWORD OptionValue = *(DWORD *)DataPointer;
+			const auto OptionValue = *(DWORD *)DataPointer;
 			if (setsockopt(Socket, SOL_SOCKET, SO_SNDTIMEO, (const char *)&OptionValue, sizeof(OptionValue)) == SOCKET_ERROR || 
 				setsockopt(Socket, SOL_SOCKET, SO_RCVTIMEO, (const char *)&OptionValue, sizeof(OptionValue)) == SOCKET_ERROR)
 		#elif (defined(PLATFORM_LINUX) || defined(PLATFORM_MACOS))
@@ -201,7 +201,7 @@ bool SocketSetting(
 				return false;
 			}
 */
-		//Set an IPv6 server socket that must not accept IPv4 connections in Linux.
+		//Set an IPv6 server socket that must not accept IPv4 connections in Linux and macOS.
 			errno = 0;
 			if (setsockopt(Socket, IPPROTO_IPV6, IPV6_V6ONLY, (const char *)&OptionValue, sizeof(OptionValue)) == SOCKET_ERROR)
 			{
@@ -334,11 +334,11 @@ bool SocketSetting(
 			//Socket attribute setting process
 			#if defined(PLATFORM_WIN)
 				std::uniform_int_distribution<DWORD> RamdomDistribution(Parameter.PacketHopLimits_IPv4_Begin, Parameter.PacketHopLimits_IPv4_End);
-				const DWORD OptionValue = RamdomDistribution(*GlobalRunningStatus.RamdomEngine);
+				const auto OptionValue = RamdomDistribution(*GlobalRunningStatus.RamdomEngine);
 				if (setsockopt(Socket, IPPROTO_IP, IP_TTL, (const char *)&OptionValue, sizeof(OptionValue)) == SOCKET_ERROR)
 			#elif (defined(PLATFORM_LINUX) || defined(PLATFORM_MACOS))
 				std::uniform_int_distribution<int> RamdomDistribution(Parameter.PacketHopLimits_IPv4_Begin, Parameter.PacketHopLimits_IPv4_End);
-				const int OptionValue = RamdomDistribution(*GlobalRunningStatus.RamdomEngine);
+				const auto OptionValue = RamdomDistribution(*GlobalRunningStatus.RamdomEngine);
 				if (setsockopt(Socket, IPPROTO_IP, IP_TTL, &OptionValue, sizeof(OptionValue)) == SOCKET_ERROR)
 			#endif
 				{
@@ -377,11 +377,11 @@ bool SocketSetting(
 			//Socket attribute setting process
 			#if defined(PLATFORM_WIN)
 				std::uniform_int_distribution<DWORD> RamdomDistribution(Parameter.PacketHopLimits_IPv6_Begin, Parameter.PacketHopLimits_IPv6_End);
-				const DWORD OptionValue = RamdomDistribution(*GlobalRunningStatus.RamdomEngine);
+				const auto OptionValue = RamdomDistribution(*GlobalRunningStatus.RamdomEngine);
 				if (setsockopt(Socket, IPPROTO_IPV6, IPV6_UNICAST_HOPS, (const char *)&OptionValue, sizeof(OptionValue)) == SOCKET_ERROR)
 			#elif (defined(PLATFORM_LINUX) || defined(PLATFORM_MACOS))
 				std::uniform_int_distribution<int> RamdomDistribution(Parameter.PacketHopLimits_IPv6_Begin, Parameter.PacketHopLimits_IPv6_End);
-				const int OptionValue = RamdomDistribution(*GlobalRunningStatus.RamdomEngine);
+				const auto OptionValue = RamdomDistribution(*GlobalRunningStatus.RamdomEngine);
 				if (setsockopt(Socket, IPPROTO_IPV6, IPV6_UNICAST_HOPS, &OptionValue, sizeof(OptionValue)) == SOCKET_ERROR)
 			#endif
 				{
@@ -460,13 +460,14 @@ size_t SelectTargetSocketSingle(
 		return EXIT_FAILURE;
 #if defined(ENABLE_LIBSODIUM)
 	auto PacketTarget = (DNSCURVE_SERVER_DATA **)DNSCurvePacketTarget;
-	size_t ServerType = 0;
 
 //Select DNSCurve target socket
 	if (RequestType == REQUEST_PROCESS_DNSCURVE_MAIN)
 	{
+	//Pointer check
 		if (PacketTarget == nullptr)
 			return EXIT_FAILURE;
+		size_t ServerType = 0;
 
 	//IPv6
 		if (DNSCurveParameter.DNSCurve_Target_Server_Main_IPv6.AddressData.Storage.ss_family != 0 && 
@@ -1105,10 +1106,8 @@ size_t SocketConnecting(
 //TCP connecting
 	if (Protocol == IPPROTO_TCP)
 	{
-		ssize_t ErrorCode = 0;
-
 	#if defined(PLATFORM_LINUX)
-		if (Parameter.TCP_FastOpen && OriginalSend != nullptr && SendSize >= DNS_PACKET_MINSIZE)
+		if (Parameter.TCP_FastOpen && OriginalSend != nullptr && SendSize > 0)
 		{
 			errno = 0;
 			ssize_t RecvLen = sendto(Socket, OriginalSend, (int)SendSize, MSG_FASTOPEN, SockAddr, AddrLen);
@@ -1123,7 +1122,7 @@ size_t SocketConnecting(
 	#endif
 			if (connect(Socket, SockAddr, AddrLen) == SOCKET_ERROR)
 			{
-				ErrorCode = WSAGetLastError();
+				ssize_t ErrorCode = WSAGetLastError();
 
 			#if defined(PLATFORM_WIN)
 				if (ErrorCode != WSAEWOULDBLOCK)
@@ -1168,14 +1167,18 @@ ssize_t SocketSelectingOnce(
 	const size_t RecvSize, 
 	ssize_t * const ErrorCode)
 {
+//Socket data check
+	if (SocketDataList.empty())
+		return EXIT_FAILURE;
+
 //Initialization(Part 1)
-	std::vector<SOCKET_SELECTING_ONCE_DATA> SocketSelectingList;
+	std::vector<SOCKET_SELECTING_ONCE_TABLE> SocketSelectingList;
 	size_t Index = 0;
 	ssize_t RecvLen = 0;
 	if (ErrorCode != nullptr)
 		*ErrorCode = 0;
 #if defined(ENABLE_LIBSODIUM)
-	auto DNSCurveSocketSelectingList = (std::vector<DNSCURVE_SOCKET_SELECTING_DATA> *)OriginalDNSCurveSocketSelectingList;
+	auto DNSCurveSocketSelectingList = (std::vector<DNSCURVE_SOCKET_SELECTING_TABLE> *)OriginalDNSCurveSocketSelectingList;
 	if (RequestType == REQUEST_PROCESS_DNSCURVE_MAIN)
 	{
 		if (DNSCurveSocketSelectingList == nullptr)
@@ -1183,8 +1186,7 @@ ssize_t SocketSelectingOnce(
 	}
 	else {
 #endif
-		SOCKET_SELECTING_ONCE_DATA InnerSocketData;
-		memset(&InnerSocketData, 0, sizeof(InnerSocketData));
+		SOCKET_SELECTING_ONCE_TABLE InnerSocketData;
 		for (Index = 0;Index < SocketDataList.size();++Index)
 			SocketSelectingList.push_back(InnerSocketData);
 #if defined(ENABLE_LIBSODIUM)
@@ -1235,10 +1237,7 @@ ssize_t SocketSelectingOnce(
 	memset(&ReadFDS, 0, sizeof(ReadFDS));
 	memset(&WriteFDS, 0, sizeof(WriteFDS));
 	memset(&Timeout, 0, sizeof(Timeout));
-	ssize_t SelectResult = 0;
 	size_t LastReceiveIndex = 0;
-	SYSTEM_SOCKET MaxSocket = 0;
-	auto IsAllSocketShutdown = false;
 	if (OriginalRecv == nullptr
 	#if defined(ENABLE_LIBSODIUM)
 		&& RequestType != REQUEST_PROCESS_DNSCURVE_MAIN
@@ -1260,8 +1259,7 @@ ssize_t SocketSelectingOnce(
 			Timeout.tv_sec = DNSCurveParameter.DNSCurve_SocketTimeout_Reliable / SECOND_TO_MILLISECOND;
 			Timeout.tv_usec = DNSCurveParameter.DNSCurve_SocketTimeout_Reliable % SECOND_TO_MILLISECOND * MICROSECOND_TO_MILLISECOND;
 		#elif (defined(PLATFORM_LINUX) || defined(PLATFORM_MACOS))
-			Timeout.tv_sec = DNSCurveParameter.DNSCurve_SocketTimeout_Reliable.tv_sec;
-			Timeout.tv_usec = DNSCurveParameter.DNSCurve_SocketTimeout_Reliable.tv_usec;
+			Timeout = DNSCurveParameter.DNSCurve_SocketTimeout_Reliable;
 		#endif
 		}
 		else { //UDP
@@ -1269,8 +1267,7 @@ ssize_t SocketSelectingOnce(
 			Timeout.tv_sec = DNSCurveParameter.DNSCurve_SocketTimeout_Unreliable / SECOND_TO_MILLISECOND;
 			Timeout.tv_usec = DNSCurveParameter.DNSCurve_SocketTimeout_Unreliable % SECOND_TO_MILLISECOND * MICROSECOND_TO_MILLISECOND;
 		#elif (defined(PLATFORM_LINUX) || defined(PLATFORM_MACOS))
-			Timeout.tv_sec = DNSCurveParameter.DNSCurve_SocketTimeout_Unreliable.tv_sec;
-			Timeout.tv_usec = DNSCurveParameter.DNSCurve_SocketTimeout_Unreliable.tv_usec;
+			Timeout = DNSCurveParameter.DNSCurve_SocketTimeout_Unreliable;
 		#endif
 		}
 	}
@@ -1282,8 +1279,7 @@ ssize_t SocketSelectingOnce(
 			Timeout.tv_sec = Parameter.SocketTimeout_Reliable_Once / SECOND_TO_MILLISECOND;
 			Timeout.tv_usec = Parameter.SocketTimeout_Reliable_Once % SECOND_TO_MILLISECOND * MICROSECOND_TO_MILLISECOND;
 		#elif (defined(PLATFORM_LINUX) || defined(PLATFORM_MACOS))
-			Timeout.tv_sec = Parameter.SocketTimeout_Reliable_Once.tv_sec;
-			Timeout.tv_usec = Parameter.SocketTimeout_Reliable_Once.tv_usec;
+			Timeout = Parameter.SocketTimeout_Reliable_Once;
 		#endif
 		}
 		else { //UDP
@@ -1291,8 +1287,7 @@ ssize_t SocketSelectingOnce(
 			Timeout.tv_sec = Parameter.SocketTimeout_Unreliable_Once / SECOND_TO_MILLISECOND;
 			Timeout.tv_usec = Parameter.SocketTimeout_Unreliable_Once % SECOND_TO_MILLISECOND * MICROSECOND_TO_MILLISECOND;
 		#elif (defined(PLATFORM_LINUX) || defined(PLATFORM_MACOS))
-			Timeout.tv_sec = Parameter.SocketTimeout_Unreliable_Once.tv_sec;
-			Timeout.tv_usec = Parameter.SocketTimeout_Unreliable_Once.tv_usec;
+			Timeout = Parameter.SocketTimeout_Unreliable_Once;
 		#endif
 		}
 #if defined(ENABLE_LIBSODIUM)
@@ -1302,6 +1297,8 @@ ssize_t SocketSelectingOnce(
 //Selecting process
 	for (;;)
 	{
+		auto IsAllSocketShutdown = false;
+
 	//Socket check(Part 2)
 		for (auto SocketDataIter = SocketDataList.begin();SocketDataIter != SocketDataList.end();++SocketDataIter)
 		{
@@ -1339,8 +1336,8 @@ ssize_t SocketSelectingOnce(
 	//Reset parameters.
 		FD_ZERO(&ReadFDS);
 		FD_ZERO(&WriteFDS);
-		MaxSocket = 0;
-
+		SYSTEM_SOCKET MaxSocket = 0;
+			
 	//Socket check and non-blocking process
 		for (Index = 0;Index < SocketDataList.size();++Index)
 		{
@@ -1389,9 +1386,9 @@ ssize_t SocketSelectingOnce(
 
 	//Wait for system calling.
 	#if defined(PLATFORM_WIN)
-		SelectResult = select(0, &ReadFDS, &WriteFDS, nullptr, &Timeout);
+		ssize_t SelectResult = select(0, &ReadFDS, &WriteFDS, nullptr, &Timeout);
 	#elif (defined(PLATFORM_LINUX) || defined(PLATFORM_MACOS))
-		SelectResult = select(MaxSocket + 1U, &ReadFDS, &WriteFDS, nullptr, &Timeout);
+		ssize_t SelectResult = select(MaxSocket + 1U, &ReadFDS, &WriteFDS, nullptr, &Timeout);
 	#endif
 		if (SelectResult > 0)
 		{
@@ -1503,9 +1500,8 @@ ssize_t SocketSelectingOnce(
 						}
 						else {
 						//Receive, drop all data and close sockets.
-							RecvLen = recv(SocketDataList.at(Index).Socket, (char *)RecvBufferTemp.get(), PACKET_MAXSIZE, 0);
+							recv(SocketDataList.at(Index).Socket, (char *)RecvBufferTemp.get(), PACKET_MAXSIZE, 0);
 							memset(RecvBufferTemp.get(), 0, PACKET_MAXSIZE);
-							RecvLen = 0;
 							SocketSetting(SocketDataList.at(Index).Socket, SOCKET_SETTING_CLOSE, false, nullptr);
 							SocketDataList.at(Index).Socket = 0;
 						}
@@ -1622,13 +1618,18 @@ ssize_t SelectingResultOnce(
 	const size_t RequestType, 
 	const uint16_t Protocol, 
 	std::vector<SOCKET_DATA> &SocketDataList, 
-	std::vector<SOCKET_SELECTING_ONCE_DATA> *SocketSelectingList, 
+	std::vector<SOCKET_SELECTING_ONCE_TABLE> *SocketSelectingList, 
 	void * const OriginalDNSCurveSocketSelectingList, 
 	uint8_t * const OriginalRecv, 
 	const size_t RecvSize)
 {
+//Socket data check
+	if (SocketDataList.empty())
+		return EXIT_FAILURE;
+
+//Initialization
 #if defined(ENABLE_LIBSODIUM)
-	auto DNSCurveSocketSelectingList = (std::vector<DNSCURVE_SOCKET_SELECTING_DATA> *)OriginalDNSCurveSocketSelectingList;
+	auto DNSCurveSocketSelectingList = (std::vector<DNSCURVE_SOCKET_SELECTING_TABLE> *)OriginalDNSCurveSocketSelectingList;
 	if (RequestType == REQUEST_PROCESS_DNSCURVE_MAIN)
 	{
 		if (DNSCurveSocketSelectingList == nullptr)
@@ -1727,6 +1728,7 @@ ssize_t SelectingResultOnce(
 						SocketDataIter.Socket = 0;
 					}
 				}
+
 				SocketMarkingMutex.unlock();
 
 			//Mark DNS cache.
@@ -1823,6 +1825,7 @@ ssize_t SelectingResultOnce(
 						SocketDataIter.Socket = 0;
 					}
 				}
+
 				SocketMarkingMutex.unlock();
 
 			//Mark DNS cache.
@@ -1847,6 +1850,10 @@ size_t SocketSelectingSerial(
 	std::vector<SOCKET_SELECTING_SERIAL_DATA> &SocketSelectingDataList, 
 	std::vector<ssize_t> &ErrorCodeList)
 {
+//Socket data check
+	if (SocketDataList.empty() || SocketSelectingDataList.empty() || ErrorCodeList.empty())
+		return EXIT_FAILURE;
+
 //Initialization
 	fd_set ReadFDS, WriteFDS;
 	timeval Timeout;
@@ -1873,8 +1880,7 @@ size_t SocketSelectingSerial(
 		Timeout.tv_sec = Parameter.SocketTimeout_Reliable_Serial / SECOND_TO_MILLISECOND;
 		Timeout.tv_usec = Parameter.SocketTimeout_Reliable_Serial % SECOND_TO_MILLISECOND * MICROSECOND_TO_MILLISECOND;
 	#elif (defined(PLATFORM_LINUX) || defined(PLATFORM_MACOS))
-		Timeout.tv_sec = Parameter.SocketTimeout_Reliable_Serial.tv_sec;
-		Timeout.tv_usec = Parameter.SocketTimeout_Reliable_Serial.tv_usec;
+		Timeout = Parameter.SocketTimeout_Reliable_Serial;
 	#endif
 	}
 	else if (Protocol == IPPROTO_UDP)
@@ -1883,8 +1889,7 @@ size_t SocketSelectingSerial(
 		Timeout.tv_sec = Parameter.SocketTimeout_Unreliable_Serial / SECOND_TO_MILLISECOND;
 		Timeout.tv_usec = Parameter.SocketTimeout_Unreliable_Serial % SECOND_TO_MILLISECOND * MICROSECOND_TO_MILLISECOND;
 	#elif (defined(PLATFORM_LINUX) || defined(PLATFORM_MACOS))
-		Timeout.tv_sec = Parameter.SocketTimeout_Unreliable_Serial.tv_sec;
-		Timeout.tv_usec = Parameter.SocketTimeout_Unreliable_Serial.tv_usec;
+		Timeout = Parameter.SocketTimeout_Unreliable_Serial;
 	#endif
 	}
 	else {
@@ -2141,12 +2146,16 @@ void MarkPortToList(
 	const SOCKET_DATA * const LocalSocketData, 
 	std::vector<SOCKET_DATA> &SocketDataList)
 {
+//Socket data check
+	if (SocketDataList.empty())
+		return;
+
+//Mark port.
 	if (LocalSocketData != nullptr && Protocol > 0)
 	{
 		SOCKET_DATA SocketDataTemp;
 		OUTPUT_PACKET_TABLE OutputPacketListTemp;
 		memset(&SocketDataTemp, 0, sizeof(SocketDataTemp));
-		memset(&OutputPacketListTemp, 0, sizeof(OutputPacketListTemp));
 
 	//Mark system connection data.
 		OutputPacketListTemp.SocketData_Input = *LocalSocketData;

@@ -1,18 +1,25 @@
-﻿Pcap_DNSProxy 0.4.8.1-0.4.8.2 更新日誌(2016-11-30)：
+﻿Pcap_DNSProxy 0.4.8.1-0.4.8.3 更新日誌(2016-12-18)：
 
-* 新增 Strict Resource Record TTL Filter 參數以支援 RFC 2181 標準所要求的資源記錄 TTL 檢查
-* 新增一組 Pcap Devices Blacklist 非必要抓包黑名單 (macOS)
+* 添加 Address Hosts 的首碼長度支援 [LGA1150]
+* 添加 Strict Resource Record TTL Filter 參數以支援 RFC 2181 標準所要求的資源記錄 TTL 檢查
+* 添加一組 Pcap Devices Blacklist 非必要抓包黑名單 (macOS)
+* 標準化 EDNS Client Subnet 的行為
 * 改進的 Domain Case Conversion 功能
 * 改進在啟用手動版本選擇時所指定使用的 Ciphers Suites (Linux/macOS)
 * 修改多行注釋區域的標籤要求 [Monoremonton/wx0]
 * 修復記憶體對齊可能造成的性能問題 [Syrone Wong]
 * 修復 Operation Mode 參數指定為 Proxy 和 Server 模式時工作不正常的問題 [Syrone Wong/wang20150419]
 * 修復預編譯二進位版本無法正確運行的錯誤 (macOS) [fysly]
+* 修復 IPv6 位址的 Local Routing 在指定部分首碼長度時可能出現的崩潰問題
+* 修復 IPv6 位址實際位址與首碼長度所指定的位址不一致的問題
 * 修復多行注釋區域無法通過其它非多行注釋區域標籤重置的問題
 * 修復 TCP 模式下 SOCKS Proxy 和 HTTP CONNECT Proxy 工作不正常的問題
 * 修復 Local Force Request 參數在啟用 Local Main 或 Local Routing 功能時工作不正常的問題
+* 修復反查本地 IPv6 位址 PTR 記錄的問題 (Windows/Linux)
+* 修復 32 位系統下可能出現的計算檔佔用空間錯誤的問題 (Windows)
 * 修復使用低於 OpenSSL 1.0.1 版本時指定過於嚴格的規則導致沒有任何 Ciphers Suites 可用的問題 (Linux/macOS)
 * 修復記憶體對齊方式不一致可能導致的運行出錯的問題 (Linux/macOS)
+* 修復在啟用 TCP Fast Open 的情況下有幾率出現的要求傳送失敗的問題 (Linux)
 * Release Hash:
   * SHA-3(256):
     * Windows/Pcap_DNSProxy.exe: 

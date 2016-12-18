@@ -365,6 +365,7 @@ https://sourceforge.net/projects/pcap-dnsproxy
   * IPv4 EDNS Client Subnet Address - IPv4 客户端子网地址，输入后将为所有请求添加此地址的 EDNS 子网信息：需要输入一个带前缀长度的本机公共网络地址，留空为不启用
     * 本功能要求启用 EDNS Label 参数
     * EDNS Client Subnet Relay 参数优先级比此参数高，启用后将优先添加 EDNS Client Subnet Relay 参数的 EDNS 子网地址
+    * RFC 标准建议 IPv4 地址的前缀长度为 24 位，IPv6 地址为 56 位
   * IPv4 Main DNS Address - IPv4 主要 DNS 服务器地址：需要输入一个带端口格式的地址，留空为不启用
     * 支持多个地址，注意填入后将强制启用 Alternate Multiple Request 参数
     * 支持使用服务名称代替端口号
@@ -657,7 +658,10 @@ https://sourceforge.net/projects/pcap-dnsproxy
     * 填入的协议可随意组合，只填 IPv4 或 IPv6 配合 UDP 或 TCP 时，只使用指定协议向远程 DNS 服务器发出请求
     * 同时填入 IPv4 和 IPv6 或直接不填任何网络层协议时，程序将根据网络环境自动选择所使用的协议
     * 同时填入 TCP 和 UDP 等于只填入 TCP 因为 UDP 为 DNS 的标准网络层协议，所以即使填入 TCP 失败时也会使用 UDP 请求
-  * DNSCurve Payload Size - DNSCurve EDNS 标签附带使用的最大载荷长度，同时亦为发送请求的总长度，并决定请求的填充长度：最小为 DNS 协议实现要求的 512(bytes)，留空则为 512(bytes)
+  * DNSCurve Payload Size - DNSCurve 标签附带使用的最大载荷长度，同时亦为发送请求的总长度，并决定请求的填充长度：单位为字节
+    * 最小为 DNS 协议实现要求的 512，留空则为 512
+    * 最大为 1500 减去 DNSCurve 头长度，建议不要超过 1220
+    * DNSCurve 协议要求此值必须为 64 的倍数
   * DNSCurve Reliable Socket Timeout - 可靠 DNSCurve 协议端口超时时间，可靠端口指 TCP 协议：单位为毫秒，最小为 500 可留空，留空时为 3000
   * DNSCurve Unreliable Socket Timeout - 不可靠 DNSCurve 协议端口超时时间，不可靠端口指 UDP 协议：单位为毫秒，最小为 500 可留空，留空时为 2000
   * DNSCurve Encryption - 启用加密，DNSCurve 协议支持加密和非加密模式：开启为 1 /关闭为 0
@@ -813,13 +817,20 @@ Hosts 配置文件分为多个提供不同功能的区域
 
 * Address Hosts - 解析结果地址替换列表
   * 本区域数据用于替换解析结果中的地址，提供更精确的 Hosts 自定义能力
+  * 目标地址区域支持使用网络前缀格式，可根据指定的前缀长度替换解析结果中地址的前缀数据
+    * 使用网络前缀格式时第一个目标地址条目必须指定前缀长度，其它目标地址可省略不写也可全部写上
+    * 网络前缀格式指定后将应用到所有目标地址上，注意整个条目只能指定同一个前缀长度
   * 例如有一个 [Address Hosts] 下有效数据区域：
 
     127.0.0.1|127.0.0.2 127.0.0.0-127.255.255.255
+    255.255.255.255/24 255.254.253.252
     ::1 ::-::FFFF
+    FFFF:EEEE::/64|FFFF:EEEE:: FFFF::EEEE|FFFF::EEEF-FFFF::FFFF
 
   * 解析结果的地址范围为 127.0.0.0 到 127.255.255.255 时将被替换为 127.0.0.1 或 127.0.0.2
+  * 解析结果的地址为 255.254.253.252 时将被替换为 255.255.255.252
   * 解析结果的地址范围为 :: 到 ::FFFF 时将被替换为 ::1
+  * 解析结果的地址范围为 FFFF::EEEE 或 FFFF::EEEF 到 FFFF::FFFF 时将被替换为 FFFF:FFFF::EEEE 或 FFFF:FFFF::xxxx:xxxx:xxxx:xxxx 或 FFFF:EEEE::EEEE 或 FFFF:EEEE::xxxx:xxxx:xxxx:xxxx
 
 
 * Stop - 临时停止读取标签
@@ -918,7 +929,6 @@ IPFilter 配置文件分为 Blacklist/黑名单区域 和 IPFilter/地址过滤�
 地址过滤黑名单或白名单由配置文件的 IPFilter Type 值决定，Deny 禁止/黑名单和 Permit 允许/白名单
 有效参数格式为 "开始地址 - 结束地址, 过滤等级, 条目简介注释"（不含引号）
   * 同时支持 IPv4 和 IPv6 地址，但填写时请分开为2个条目
-  * 同一类型的地址地址段有重复的条目将会被自动合并
 
 
 * Local Routing - 境内路由表区域
@@ -929,8 +939,7 @@ IPFilter 配置文件分为 Blacklist/黑名单区域 和 IPFilter/地址过滤�
 
 
 * Stop - 临时停止读取标签
-  * 在需要停止读取的数据前添加 "[Stop]"（不含引号） 标签即可在中途停止对文件的读取，直到再次遇到临时停止读取标签或其它标签时再重新开始读取
-  * 具体情况参见上文的介绍
+  * 详细介绍参见上文对本功能的介绍
 
 
 -------------------------------------------------------------------------------

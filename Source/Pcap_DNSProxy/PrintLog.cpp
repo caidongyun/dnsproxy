@@ -158,7 +158,7 @@ bool PrintError(
 
 //Write to screen and file
 bool WriteMessage_ScreenFile(
-	const std::wstring Message, 
+	const std::wstring &Message, 
 	const ssize_t ErrorCode, 
 	const size_t Line)
 {
@@ -234,7 +234,7 @@ bool WriteMessage_ScreenFile(
 		memset(&ErrorFileSize, 0, sizeof(ErrorFileSize));
 		ErrorFileSize.HighPart = FileAttributeData.nFileSizeHigh;
 		ErrorFileSize.LowPart = FileAttributeData.nFileSizeLow;
-		if (ErrorFileSize.QuadPart > 0 && (size_t)ErrorFileSize.QuadPart >= Parameter.LogMaxSize)
+		if (ErrorFileSize.QuadPart > 0 && (uint64_t)ErrorFileSize.QuadPart >= Parameter.LogMaxSize)
 		{
 			if (DeleteFileW(
 				GlobalRunningStatus.Path_ErrorLog->c_str()) != FALSE)
@@ -276,10 +276,10 @@ bool WriteMessage_ScreenFile(
 				TimeStructure.tm_sec);
 		}
 
-	//Print old file deleted message.
+	//Print old file removed message.
 		if (IsFileDeleted)
 		{
-			fwprintf_s(FileHandle, L"[%d-%02d-%02d %02d:%02d:%02d] -> [Notice] Old log file was deleted.\n", 
+			fwprintf_s(FileHandle, L"[%d-%02d-%02d %02d:%02d:%02d] -> [Notice] Old log file was removed.\n", 
 				TimeStructure.tm_year + 1900, 
 				TimeStructure.tm_mon + 1, 
 				TimeStructure.tm_mday, 
@@ -323,7 +323,6 @@ void PrintToScreen(
 {
 //Initialization
 	va_list ArgList;
-	memset(&ArgList, 0, sizeof(ArgList));
 	va_start(ArgList, Format);
 
 //Print data to screen.
@@ -457,7 +456,6 @@ void DNSCurvePrintLog(
 	const size_t ServerType, 
 	std::wstring &Message)
 {
-	Message.clear();
 	switch (ServerType)
 	{
 		case DNSCURVE_MAIN_IPV6:
@@ -476,6 +474,10 @@ void DNSCurvePrintLog(
 		{
 			Message = L"IPv4 Alternate Server ";
 		}break;
+		default:
+		{
+			Message.clear();
+		}
 	}
 
 	return;

@@ -66,24 +66,19 @@ bool ReadCommand(
 		return false;
 	}
 	else {
-		GlobalRunningStatus.IsWinSockInitialized = true;
+		GlobalRunningStatus.IsInitialized_WinSock = true;
 	}
+#endif
 
 //Read commands.
-	std::wstring Commands;
-#elif (defined(PLATFORM_LINUX) || defined(PLATFORM_MACOS))
-	std::string Commands;
-#endif
 	for (size_t Index = 1U;(int)Index < argc;++Index)
 	{
-		Commands = argv[Index];
-
 	//Case insensitive
-		#if defined(PLATFORM_WIN)
-			std::wstring InsensitiveString(Commands);
-		#elif (defined(PLATFORM_LINUX) || defined(PLATFORM_MACOS))
-			std::string InsensitiveString(Commands);
-		#endif
+	#if defined(PLATFORM_WIN)
+		std::wstring Commands(argv[Index]), InsensitiveString(argv[Index]);
+	#elif (defined(PLATFORM_LINUX) || defined(PLATFORM_MACOS))
+		std::string Commands(argv[Index]), InsensitiveString(argv[Index]);
+	#endif
 		CaseConvert(InsensitiveString, false);
 
 	//Set working directory from commands.
@@ -356,7 +351,7 @@ bool FileNameInit(
 	GlobalRunningStatus.Path_Global->front().erase(GlobalRunningStatus.Path_Global->front().rfind(L"\\") + 1U);
 	for (size_t Index = 0;Index < GlobalRunningStatus.Path_Global->front().length();++Index)
 	{
-		if ((GlobalRunningStatus.Path_Global->front()).at(Index) == L'\\')
+		if ((GlobalRunningStatus.Path_Global->front()).at(Index) == (L'\\'))
 		{
 			GlobalRunningStatus.Path_Global->front().insert(Index, L"\\");
 			++Index;
@@ -376,13 +371,11 @@ bool FileNameInit(
 #endif
 
 //Get path of error/running status log file and mark start time.
-	GlobalRunningStatus.Path_ErrorLog->clear();
 	*GlobalRunningStatus.Path_ErrorLog = GlobalRunningStatus.Path_Global->front();
 	GlobalRunningStatus.Path_ErrorLog->append(ERROR_LOG_FILE_NAME);
 #if defined(PLATFORM_WIN)
 	GlobalRunningStatus.IsConsole = true;
 #elif (defined(PLATFORM_LINUX) || defined(PLATFORM_MACOS))
-	GlobalRunningStatus.MBS_Path_ErrorLog->clear();
 	*GlobalRunningStatus.MBS_Path_ErrorLog = GlobalRunningStatus.MBS_Path_Global->front();
 	GlobalRunningStatus.MBS_Path_ErrorLog->append(ERROR_LOG_FILE_NAME_MBS);
 #endif

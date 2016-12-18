@@ -193,18 +193,17 @@ bool ReadText(
 		}
 		else if (Encoding == CODEPAGE_UTF_16_LE || Encoding == CODEPAGE_UTF_16_BE)
 		{
-			uint16_t *SingleText = nullptr;
 			for (Index = 0;Index < ReadLength;Index += sizeof(uint16_t))
 			{
-				SingleText = (uint16_t *)(FileBuffer.get() + Index);
+				auto SingleText = (uint16_t *)(FileBuffer.get() + Index);
 
 			//Endian
 			#if BYTE_ORDER == LITTLE_ENDIAN
 				if (Encoding == CODEPAGE_UTF_16_BE)
-					*SingleText = ntoh16_Force(*SingleText);
+					(*SingleText) = ntoh16_Force(*SingleText);
 			#else
 				if (Encoding == CODEPAGE_UTF_16_LE)
-					*SingleText = ntoh16_Force(*SingleText);
+					(*SingleText) = ntoh16_Force(*SingleText);
 			#endif
 			//Next line format
 				if (*SingleText == ASCII_CR)
@@ -227,10 +226,9 @@ bool ReadText(
 		}
 		else if (Encoding == CODEPAGE_UTF_32_LE || Encoding == CODEPAGE_UTF_32_BE)
 		{
-			uint32_t *SingleText = nullptr;
 			for (Index = 0;Index < ReadLength;Index += sizeof(uint32_t))
 			{
-				SingleText = (uint32_t *)(FileBuffer.get() + Index);
+				auto SingleText = (uint32_t *)(FileBuffer.get() + Index);
 
 			//Endian
 			#if BYTE_ORDER == LITTLE_ENDIAN
@@ -387,19 +385,19 @@ bool ReadParameter(
 //Create file list.
 	if (IsFirstRead)
 	{
-		const wchar_t *ConfigFileNameList[]{CONFIG_FILE_NAME_LIST};
+		const wchar_t *WCS_ConfigFileNameList[]CONFIG_FILE_NAME_LIST;
 	#if (defined(PLATFORM_LINUX) || defined(PLATFORM_MACOS))
-		const char *sConfigFileNameList[]{CONFIG_FILE_NAME_LIST_STRING};
+		const char *MBS_ConfigFileNameList[]CONFIG_FILE_NAME_LIST_MBS;
 	#endif
 
 		FILE_DATA ConfigFileTemp;
-		for (FileIndex = 0;FileIndex < sizeof(ConfigFileNameList) / sizeof(wchar_t *);++FileIndex)
+		for (FileIndex = 0;FileIndex < sizeof(WCS_ConfigFileNameList) / sizeof(wchar_t *);++FileIndex)
 		{
 			ConfigFileTemp.FileName = GlobalRunningStatus.Path_Global->front();
-			ConfigFileTemp.FileName.append(ConfigFileNameList[FileIndex]);
+			ConfigFileTemp.FileName.append(WCS_ConfigFileNameList[FileIndex]);
 		#if (defined(PLATFORM_LINUX) || defined(PLATFORM_MACOS))
 			ConfigFileTemp.MBS_FileName = GlobalRunningStatus.MBS_Path_Global->front();
-			ConfigFileTemp.MBS_FileName.append(sConfigFileNameList[FileIndex]);
+			ConfigFileTemp.MBS_FileName.append(MBS_ConfigFileNameList[FileIndex]);
 		#endif
 			ConfigFileTemp.ModificationTime = 0;
 
@@ -455,7 +453,7 @@ bool ReadParameter(
 			memset(&ConfigFileSize, 0, sizeof(ConfigFileSize));
 			ConfigFileSize.HighPart = FileAttributeData.nFileSizeHigh;
 			ConfigFileSize.LowPart = FileAttributeData.nFileSizeLow;
-			if (ConfigFileSize.QuadPart < 0 || (size_t)ConfigFileSize.QuadPart >= FILE_READING_MAXSIZE)
+			if (ConfigFileSize.QuadPart < 0 || (uint64_t)ConfigFileSize.QuadPart >= FILE_READING_MAXSIZE)
 			{
 				PrintError(LOG_LEVEL_3, LOG_ERROR_PARAMETER, L"Configuration file is too large", 0, FileList_Config.at(FileIndex).FileName.c_str(), 0);
 				return false;
@@ -552,7 +550,7 @@ bool ReadParameter(
 			#if defined(PLATFORM_WIN)
 				FileSizeData.HighPart = FileAttributeData.nFileSizeHigh;
 				FileSizeData.LowPart = FileAttributeData.nFileSizeLow;
-				if (FileSizeData.QuadPart < 0 || (size_t)FileSizeData.QuadPart >= FILE_READING_MAXSIZE)
+				if (FileSizeData.QuadPart < 0 || (uint64_t)FileSizeData.QuadPart >= FILE_READING_MAXSIZE)
 			#elif (defined(PLATFORM_LINUX) || defined(PLATFORM_MACOS))
 				if (FileStatData.st_size >= (off_t)FILE_READING_MAXSIZE)
 			#endif
@@ -648,7 +646,7 @@ bool ReadParameter(
 
 		//Flush DNS cache and Auto-refresh
 			if (IsFileModified)
-				FlushDNSCache(nullptr);
+				Flush_DNS_Cache(nullptr);
 
 			Sleep(Parameter.FileRefreshTime);
 		}
@@ -705,7 +703,7 @@ void ReadIPFilter(
 	{
 		IsFileModified = false;
 
-	//Check File lists.
+	//Check file list.
 		for (FileIndex = 0;FileIndex < FileList_IPFilter.size();++FileIndex)
 		{
 		//Get attributes of file.
@@ -732,7 +730,7 @@ void ReadIPFilter(
 			#if defined(PLATFORM_WIN)
 				FileSizeData.HighPart = FileAttributeData.nFileSizeHigh;
 				FileSizeData.LowPart = FileAttributeData.nFileSizeLow;
-				if (FileSizeData.QuadPart < 0 || (size_t)FileSizeData.QuadPart >= FILE_READING_MAXSIZE)
+				if (FileSizeData.QuadPart < 0 || (uint64_t)FileSizeData.QuadPart >= FILE_READING_MAXSIZE)
 			#elif (defined(PLATFORM_LINUX) || defined(PLATFORM_MACOS))
 				if (FileStatData.st_size >= (off_t)FILE_READING_MAXSIZE)
 			#endif
@@ -842,7 +840,7 @@ void ReadIPFilter(
 		IPFilterFileSetModificating->shrink_to_fit();
 
 	//Flush DNS cache and Auto-refresh
-		FlushDNSCache(nullptr);
+		Flush_DNS_Cache(nullptr);
 		Sleep(Parameter.FileRefreshTime);
 	}
 
@@ -897,7 +895,7 @@ void ReadHosts(
 	{
 		IsFileModified = false;
 
-	//Check File lists.
+	//Check file list.
 		for (FileIndex = 0;FileIndex < FileList_Hosts.size();++FileIndex)
 		{
 		//Get attributes of file.
@@ -924,7 +922,7 @@ void ReadHosts(
 			#if defined(PLATFORM_WIN)
 				FileSizeData.HighPart = FileAttributeData.nFileSizeHigh;
 				FileSizeData.LowPart = FileAttributeData.nFileSizeLow;
-				if (FileSizeData.QuadPart < 0 || (size_t)FileSizeData.QuadPart >= FILE_READING_MAXSIZE)
+				if (FileSizeData.QuadPart < 0 || (uint64_t)FileSizeData.QuadPart >= FILE_READING_MAXSIZE)
 			#elif (defined(PLATFORM_LINUX) || defined(PLATFORM_MACOS))
 				if (FileStatData.st_size >= (off_t)FILE_READING_MAXSIZE)
 			#endif
@@ -1034,7 +1032,7 @@ void ReadHosts(
 		HostsFileSetModificating->shrink_to_fit();
 
 	//Flush DNS cache and Auto-refresh
-		FlushDNSCache(nullptr);
+		Flush_DNS_Cache(nullptr);
 		Sleep(Parameter.FileRefreshTime);
 	}
 
@@ -1079,7 +1077,7 @@ void ClearModificatingListData(
 //Get data list from file
 void GetParameterListData(
 	std::vector<std::string> &ListData, 
-	const std::string Data, 
+	const std::string &Data, 
 	const size_t DataOffset, 
 	const size_t Length, 
 	const uint8_t SeparatedSign, 
@@ -1091,7 +1089,7 @@ void GetParameterListData(
 	ListData.clear();
 
 //Get all list data.
-	for (size_t Index = DataOffset;Index < Length;++Index)
+	for (auto Index = DataOffset;Index < Length;++Index)
 	{
 	//Last data
 		if (Index + 1U == Length)

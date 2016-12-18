@@ -169,6 +169,7 @@ bool CaptureFilterRulesInit(
 			//Add to address list.
 				if (!RepeatingItem)
 					AddrList.push_back(&DNSServerDataIter);
+
 				RepeatingItem = false;
 			}
 		}
@@ -199,6 +200,7 @@ bool CaptureFilterRulesInit(
 		//Add to address list.
 			if (!RepeatingItem)
 				AddrList.push_back(&Parameter.Target_Server_Alternate_IPv4);
+
 			RepeatingItem = false;
 		}
 
@@ -221,13 +223,18 @@ bool CaptureFilterRulesInit(
 			//Add to address list.
 				if (!RepeatingItem)
 					AddrList.push_back(&DNSServerDataIter);
+
 				RepeatingItem = false;
 			}
 		}
 	}
 
+//Address list check
+	if (AddrList.empty())
+		return false;
+
 //Initialization(Part 2)
-	uint8_t Addr[ADDRESS_STRING_MAXSIZE]{0};
+	uint8_t AddrBuffer[ADDRESS_STRING_MAXSIZE]{0};
 	std::string AddrString;
 	FilterRules.clear();
 	FilterRules.append("(src host ");
@@ -239,33 +246,39 @@ bool CaptureFilterRulesInit(
 	{
 		if (DNSServerDataIter->AddressData.Storage.ss_family == AF_INET6)
 		{
+		//Add joiner.
 			if (RepeatingItem)
 				AddrString.append(" or ");
 			RepeatingItem = true;
 
-			if (!BinaryToAddressString(AF_INET6, &DNSServerDataIter->AddressData.IPv6.sin6_addr, Addr, ADDRESS_STRING_MAXSIZE, &Result))
+		//Convert binary to address string.
+			if (!BinaryToAddressString(AF_INET6, &DNSServerDataIter->AddressData.IPv6.sin6_addr, AddrBuffer, ADDRESS_STRING_MAXSIZE, &Result))
 			{
 				PrintError(LOG_LEVEL_1, LOG_ERROR_PARAMETER, L"IPv6 address format error", Result, nullptr, 0);
 				return false;
 			}
 
-			AddrString.append((const char *)Addr);
-			memset(Addr, 0, ADDRESS_STRING_MAXSIZE);
+		//Add assress string to end.
+			AddrString.append((const char *)AddrBuffer);
+			memset(AddrBuffer, 0, ADDRESS_STRING_MAXSIZE);
 		}
 		else if (DNSServerDataIter->AddressData.Storage.ss_family == AF_INET)
 		{
+		//Add joiner.
 			if (RepeatingItem)
 				AddrString.append(" or ");
 			RepeatingItem = true;
 
-			if (!BinaryToAddressString(AF_INET, &DNSServerDataIter->AddressData.IPv4.sin_addr, Addr, ADDRESS_STRING_MAXSIZE, &Result))
+		//Convert binary to address string.
+			if (!BinaryToAddressString(AF_INET, &DNSServerDataIter->AddressData.IPv4.sin_addr, AddrBuffer, ADDRESS_STRING_MAXSIZE, &Result))
 			{
 				PrintError(LOG_LEVEL_1, LOG_ERROR_PARAMETER, L"IPv4 address format error", Result, nullptr, 0);
 				return false;
 			}
 
-			AddrString.append((const char *)Addr);
-			memset(Addr, 0, ADDRESS_STRING_MAXSIZE);
+		//Add assress string to end.
+			AddrString.append((const char *)AddrBuffer);
+			memset(AddrBuffer, 0, ADDRESS_STRING_MAXSIZE);
 		}
 	}
 
@@ -289,7 +302,8 @@ bool CaptureModule(
 	if (DriveInterface == nullptr)
 		return false;
 #if defined(PLATFORM_WIN)
-	else if (DriveInterface->name == nullptr || DriveInterface->addresses == nullptr || DriveInterface->addresses->netmask == nullptr || DriveInterface->flags == PCAP_IF_LOOPBACK)
+	else if (DriveInterface->name == nullptr || DriveInterface->addresses == nullptr || DriveInterface->addresses->netmask == nullptr || 
+		DriveInterface->flags == PCAP_IF_LOOPBACK)
 #elif (defined(PLATFORM_LINUX) || defined(PLATFORM_MACOS))
 	else if (DriveInterface->name == nullptr || DriveInterface->addresses == nullptr || DriveInterface->flags == PCAP_IF_LOOPBACK)
 #endif
@@ -308,8 +322,7 @@ bool CaptureModule(
 	}
 
 //Mark capture name.
-	CaptureDevice.clear();
-	CaptureDevice.append(DriveInterface->name);
+	CaptureDevice = DriveInterface->name;
 	CaseConvert(CaptureDevice, false);
 	for (const auto &CaptureIter:*Parameter.PcapDevicesBlacklist)
 	{
@@ -335,8 +348,7 @@ DevicesNotSkip:
 //Initialization(Part 1)
 	std::shared_ptr<uint8_t> Buffer(new uint8_t[Parameter.LargeBufferSize + PADDING_RESERVED_BYTES]());
 	memset(Buffer.get(), 0, Parameter.LargeBufferSize + PADDING_RESERVED_BYTES);
-	CaptureDevice.clear();
-	CaptureDevice.append(DriveInterface->name);
+	CaptureDevice = DriveInterface->name;
 	CaptureDevice.shrink_to_fit();
 
 //Open device
@@ -418,12 +430,11 @@ DevicesNotSkip:
 	ParamList.DeviceType = DeviceType;
 	ParamList.Buffer = Buffer.get();
 	ParamList.BufferSize = Parameter.LargeBufferSize + PADDING_RESERVED_BYTES;
-	ssize_t Result = 0;
 
 //Start monitor.
 	for (;;)
 	{
-		Result = pcap_loop(DeviceHandle, PCAP_LOOP_INFINITY, CaptureHandler, (unsigned char *)&ParamList);
+		ssize_t Result = pcap_loop(DeviceHandle, PCAP_LOOP_INFINITY, CaptureHandler, (unsigned char *)&ParamList);
 		if (Result < 0)
 		{
 		//Shutdown this capture handle.
@@ -456,12 +467,12 @@ DevicesNotSkip:
 
 //Handler of WinPcap/LibPcap loop function
 void CaptureHandler(
-	uint8_t * const Param, 
+	uint8_t * const ProcParameter, 
 	const pcap_pkthdr * const PacketHeader, 
 	const uint8_t * const PacketData)
 {
 //Initialization
-	const auto ParamList = (PCAPTURE_HANDLER_PARAM)Param;
+	const auto ParamList = (PCAPTURE_HANDLER_PARAM)ProcParameter;
 	memset(ParamList->Buffer, 0, Parameter.LargeBufferSize + PADDING_RESERVED_BYTES);
 	size_t Length = PacketHeader->caplen;
 	uint16_t Protocol = 0;
@@ -956,6 +967,7 @@ ClearOutputPacketListData:
 
 		OutputPacketList.pop_front();
 	}
+
 	OutputPacketListMutex.unlock();
 
 //Drop resopnses which not in OutputPacketList.

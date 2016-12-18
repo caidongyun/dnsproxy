@@ -22,12 +22,12 @@
 #if defined(PLATFORM_WIN)
 //Catch Control-C exception from keyboard
 BOOL WINAPI CtrlHandler(
-	const DWORD fdwCtrlType)
+	const DWORD ControlType)
 {
 //Print to screen.
 	if (GlobalRunningStatus.IsConsole)
 	{
-		switch (fdwCtrlType)
+		switch (ControlType)
 		{
 		//Handle the CTRL-C signal.
 			case CTRL_C_EVENT:
@@ -62,8 +62,16 @@ size_t WINAPI ServiceMain(
 	ServiceStatusHandle = RegisterServiceCtrlHandlerW(
 		SYSTEM_SERVICE_NAME, 
 		(LPHANDLER_FUNCTION)ServiceControl);
-	if (!ServiceStatusHandle || UpdateServiceStatus(SERVICE_START_PENDING, NO_ERROR, 0, 1U, UPDATE_SERVICE_TIME) == FALSE)
+	if (ServiceStatusHandle == nullptr)
 		return FALSE;
+
+//Update service status(Part 1).
+	if (UpdateServiceStatus(SERVICE_START_PENDING, NO_ERROR, 0, 1U, UPDATE_SERVICE_TIME) == FALSE)
+	{
+		CloseHandle(
+			ServiceStatusHandle);
+		return FALSE;
+	}
 
 //Create service event.
 	ServiceEvent = CreateEventW(
@@ -71,28 +79,65 @@ size_t WINAPI ServiceMain(
 		TRUE, 
 		FALSE, 
 		0);
-	if (!ServiceEvent || UpdateServiceStatus(SERVICE_START_PENDING, NO_ERROR, 0, 2U, STANDARD_TIMEOUT) == FALSE || ExecuteService() == FALSE)
+	if (ServiceEvent == nullptr)
+	{
+		CloseHandle(
+			ServiceStatusHandle);
 		return FALSE;
+	}
+
+//Update service status(Part 2).
+	if (UpdateServiceStatus(SERVICE_START_PENDING, NO_ERROR, 0, 2U, STANDARD_TIMEOUT) == FALSE)
+	{
+		CloseHandle(
+			ServiceStatusHandle);
+		CloseHandle(
+			ServiceEvent);
+		return FALSE;
+	}
+
+//Create thread.
+	const auto ServiceThread = ExecuteService();
+	if (ServiceThread == nullptr)
+	{
+		CloseHandle(
+			ServiceStatusHandle);
+		CloseHandle(
+			ServiceEvent);
+		return FALSE;
+	}
 
 //Update service status.
 	ServiceCurrentStatus = SERVICE_RUNNING;
 	if (UpdateServiceStatus(SERVICE_RUNNING, NO_ERROR, 0, 0, 0) == FALSE)
+	{
+		CloseHandle(
+			ServiceStatusHandle);
+		CloseHandle(
+			ServiceEvent);
+		CloseHandle(
+			ServiceThread);
 		return FALSE;
+	}
 
 //Wait signal to shutdown.
 	WaitForSingleObject(
 		ServiceEvent, 
 		INFINITE);
 	CloseHandle(
+		ServiceStatusHandle);
+	CloseHandle(
 		ServiceEvent);
+	CloseHandle(
+		ServiceThread);
 	return EXIT_SUCCESS;
 }
 
 //Service controller
 size_t WINAPI ServiceControl(
-	const DWORD dwControlCode)
+	const DWORD ControlCode)
 {
-	switch(dwControlCode)
+	switch(ControlCode)
 	{
 	//Handle the shutdown signal.
 		case SERVICE_CONTROL_SHUTDOWN:
@@ -121,7 +166,7 @@ size_t WINAPI ServiceControl(
 }
 
 //Start Main process
-BOOL WINAPI ExecuteService(
+HANDLE WINAPI ExecuteService(
 	void)
 {
 	DWORD ThreadID = 0;
@@ -135,15 +180,15 @@ BOOL WINAPI ExecuteService(
 	if (ServiceThread != nullptr)
 	{
 		IsServiceRunning = TRUE;
-		return TRUE;
+		return ServiceThread;
 	}
 
-	return FALSE;
+	return nullptr;
 }
 
 //Service Main process thread
 DWORD WINAPI ServiceProc(
-	PVOID lpParameter)
+	PVOID ProcParameter)
 {
 //Start main process.
 	if (IsServiceRunning == FALSE || !MonitorInit())
@@ -158,29 +203,28 @@ DWORD WINAPI ServiceProc(
 
 //Change status of service
 BOOL WINAPI UpdateServiceStatus(
-	const DWORD dwCurrentState, 
-	const DWORD dwWin32ExitCode, 
-	const DWORD dwServiceSpecificExitCode, 
-	const DWORD dwCheckPoint, 
-	const DWORD dwWaitHint)
+	const DWORD CurrentState, 
+	const DWORD WinExitCode, 
+	const DWORD ServiceSpecificExitCode, 
+	const DWORD CheckPoint, 
+	const DWORD WaitHint)
 {
 //Initialization
 	SERVICE_STATUS ServiceStatus;
 	memset(&ServiceStatus, 0, sizeof(ServiceStatus));
 	ServiceStatus.dwServiceType = SERVICE_WIN32;
-	ServiceStatus.dwCurrentState = dwCurrentState;
-	if (dwCurrentState == SERVICE_START_PENDING)
+	ServiceStatus.dwCurrentState = CurrentState;
+	if (CurrentState == SERVICE_START_PENDING)
 		ServiceStatus.dwControlsAccepted = 0;
 	else 
 		ServiceStatus.dwControlsAccepted = SERVICE_ACCEPT_STOP | SERVICE_ACCEPT_SHUTDOWN;
-
-	if (dwServiceSpecificExitCode == 0)
-		ServiceStatus.dwWin32ExitCode = dwWin32ExitCode;
+	if (ServiceSpecificExitCode == 0)
+		ServiceStatus.dwWin32ExitCode = WinExitCode;
 	else 
 		ServiceStatus.dwWin32ExitCode = ERROR_SERVICE_SPECIFIC_ERROR;
-	ServiceStatus.dwServiceSpecificExitCode = dwServiceSpecificExitCode;
-	ServiceStatus.dwCheckPoint = dwCheckPoint;
-	ServiceStatus.dwWaitHint = dwWaitHint;
+	ServiceStatus.dwServiceSpecificExitCode = ServiceSpecificExitCode;
+	ServiceStatus.dwCheckPoint = CheckPoint;
+	ServiceStatus.dwWaitHint = WaitHint;
 
 //Service status setting
 	if (SetServiceStatus(
@@ -246,8 +290,10 @@ bool Flush_DNS_MailSlotMonitor(
 
 		return false;
 	}
-	SecurityAttributes.lpSecurityDescriptor = &SecurityDescriptor;
-	SecurityAttributes.bInheritHandle = true;
+	else {
+		SecurityAttributes.lpSecurityDescriptor = &SecurityDescriptor;
+		SecurityAttributes.bInheritHandle = true;
+	}
 
 //Create mailslot.
 	const HANDLE MailslotHandle = CreateMailslotW(
@@ -274,22 +320,21 @@ bool Flush_DNS_MailSlotMonitor(
 	wmemset(Buffer.get(), 0, FILE_BUFFER_SIZE);
 	std::wstring Message;
 	std::string Domain;
-	DWORD cbMessage = 0;
-	BOOL Result = 0;
+	DWORD MessageLength = 0;
 
 //Mailslot monitor
 	for (;;)
 	{
 	//Reset parameters.
 		wmemset(Buffer.get(), 0, FILE_BUFFER_SIZE);
-		cbMessage = 0;
+		MessageLength = 0;
 
 	//Read message from mailslot.
-		Result = ReadFile(
+		auto Result = ReadFile(
 			MailslotHandle, 
 			Buffer.get(), 
 			FILE_BUFFER_SIZE, 
-			&cbMessage, 
+			&MessageLength, 
 			nullptr);
 		if (Result == FALSE)
 		{
@@ -305,15 +350,15 @@ bool Flush_DNS_MailSlotMonitor(
 		//Read message.
 			if (Message == MAILSLOT_MESSAGE_FLUSH_DNS) //Flush all DNS cache.
 			{
-				FlushDNSCache(nullptr);
+				Flush_DNS_Cache(nullptr);
 			}
-			else if (Message.find(MAILSLOT_MESSAGE_FLUSH_DNS_DOMAIN) == 0 && //Flush single domain cache.
+			else if (Message.compare(0, wcslen(MAILSLOT_MESSAGE_FLUSH_DNS_DOMAIN), MAILSLOT_MESSAGE_FLUSH_DNS_DOMAIN) == 0 && //Flush single domain cache.
 				Message.length() > wcslen(MAILSLOT_MESSAGE_FLUSH_DNS_DOMAIN) + DOMAIN_MINSIZE && //Domain length check
 				Message.length() < wcslen(MAILSLOT_MESSAGE_FLUSH_DNS_DOMAIN) + DOMAIN_MAXSIZE)
 			{
 				if (WCS_To_MBS_String(Message.c_str() + wcslen(MAILSLOT_MESSAGE_FLUSH_DNS_DOMAIN), DOMAIN_MAXSIZE, Domain) && 
 					Domain.length() > DOMAIN_MINSIZE && Domain.length() < DOMAIN_MAXSIZE)
-						FlushDNSCache((const uint8_t *)Domain.c_str());
+						Flush_DNS_Cache((const uint8_t *)Domain.c_str());
 				else 
 					PrintError(LOG_LEVEL_2, LOG_ERROR_SYSTEM, L"Convert multiple byte or wide char string error", 0, nullptr, 0);
 			}
@@ -450,11 +495,11 @@ bool Flush_DNS_FIFO_Monitor(
 
 		//Read message.
 			if (Message == FIFO_MESSAGE_FLUSH_DNS) //Flush all DNS cache.
-				FlushDNSCache(nullptr);
-			else if (Message.find(FIFO_MESSAGE_FLUSH_DNS_DOMAIN) == 0 && //Flush single domain cache.
+				Flush_DNS_Cache(nullptr);
+			else if (Message.compare(0, strlen(FIFO_MESSAGE_FLUSH_DNS_DOMAIN), FIFO_MESSAGE_FLUSH_DNS_DOMAIN) == 0 && //Flush single domain cache.
 				Message.length() > strlen(FIFO_MESSAGE_FLUSH_DNS_DOMAIN) + DOMAIN_MINSIZE && //Domain length check
 				Message.length() < strlen(FIFO_MESSAGE_FLUSH_DNS_DOMAIN) + DOMAIN_MAXSIZE)
-					FlushDNSCache((const uint8_t *)Message.c_str() + strlen(FIFO_MESSAGE_FLUSH_DNS_DOMAIN));
+					Flush_DNS_Cache((const uint8_t *)Message.c_str() + strlen(FIFO_MESSAGE_FLUSH_DNS_DOMAIN));
 			else 
 				Sleep(Parameter.FileRefreshTime);
 		}
@@ -518,7 +563,7 @@ bool Flush_DNS_FIFO_Sender(
 #endif
 
 //Flush DNS cache
-void FlushDNSCache(
+void Flush_DNS_Cache(
 	const uint8_t * const Domain)
 {
 //Flush DNS cache in process.
@@ -537,13 +582,16 @@ void FlushDNSCache(
 				++DNSCacheDataIter;
 		}
 	}
+
 	DNSCacheListMutex.unlock();
 
+#if (defined(PLATFORM_LINUX) || defined(PLATFORM_MACOS))
 //Flush system DNS interval time check
 	if (LastFlushDNSTime > 0 && LastFlushDNSTime < GetCurrentSystemTime() + FLUSH_DNS_CACHE_INTERVAL_TIME * SECOND_TO_MILLISECOND)
 		return;
 	else 
 		LastFlushDNSTime = GetCurrentSystemTime();
+#endif
 
 //Flush DNS cache in system.
 	std::lock_guard<std::mutex> ScreenMutex(ScreenLock);

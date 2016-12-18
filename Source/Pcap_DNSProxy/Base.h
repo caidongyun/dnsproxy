@@ -121,7 +121,7 @@ void DNSCurveSocketPrecomputation(
 	uint8_t ** const Alternate_PrecomputationKey, 
 	DNSCURVE_SERVER_DATA ** const PacketTarget, 
 	std::vector<SOCKET_DATA> &SocketDataList, 
-	std::vector<DNSCURVE_SOCKET_SELECTING_DATA> &SocketSelectingList, 
+	std::vector<DNSCURVE_SOCKET_SELECTING_TABLE> &SocketSelectingList, 
 	std::shared_ptr<uint8_t> &SendBuffer, 
 	size_t &DataLength, 
 	std::shared_ptr<uint8_t> &Alternate_SendBuffer, 
@@ -340,7 +340,7 @@ bool MarkDomainCache(
 //Protocol.h
 bool AddressStringToBinary(
 	const uint16_t Protocol, 
-	const uint8_t * const AddrString, 
+	const uint8_t * const AddrBuffer, 
 	void * const OriginalAddr, 
 	ssize_t * const ErrorCode);
 bool BinaryToAddressString(
@@ -355,9 +355,9 @@ size_t AddressesComparing(
 	const void * const OriginalAddrEnd);
 bool CheckSpecialAddress(
 	const uint16_t Protocol, 
-	void * const Addr, 
+	void * const OriginalAddr, 
 	const bool IsPrivateUse, 
-	const uint8_t * const Domain);
+	const uint8_t * const DomainBuffer);
 size_t CheckQueryNameLength(
 	const uint8_t * const Buffer);
 bool CheckQueryData(
@@ -444,7 +444,7 @@ size_t UDP_CompleteRequestMultiple(
 //Service.h
 #if defined(PLATFORM_WIN)
 BOOL WINAPI CtrlHandler(
-	const DWORD fdwCtrlType);
+	const DWORD ControlType);
 size_t WINAPI ServiceMain(
 	DWORD argc, 
 	LPTSTR *argv);
@@ -458,7 +458,7 @@ bool Flush_DNS_FIFO_Monitor(
 bool Flush_DNS_FIFO_Sender(
 	const uint8_t * const Domain);
 #endif
-void FlushDNSCache(
+void Flush_DNS_Cache(
 	const uint8_t * const Domain);
 
 //TransportSecurity.h

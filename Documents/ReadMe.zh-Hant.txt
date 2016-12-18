@@ -372,6 +372,7 @@ https://sourceforge.net/projects/pcap-dnsproxy
   * IPv4 EDNS Client Subnet Address - IPv4 用戶端子網位址，輸入後將為所有請求添加此位址的 EDNS 子網資訊：需要輸入一個帶前置長度的本機公共網路位址，留空為不啟用
     * 本功能要求啟用 EDNS Label 參數
     * EDNS Client Subnet Relay 參數優先順序比此參數高，啟用後將優先添加 EDNS Client Subnet Relay 參數的 EDNS 子網位址
+    * RFC 標準建議 IPv4 位址的首碼長度為 24 位，IPv6 位址為 56 位
   * IPv4 Main DNS Address - IPv4 主要 DNS 伺服器位址：需要輸入一個帶埠格式的位址，留空為不啟用
     * 支援多個位址，注意填入後將強制啟用 Alternate Multiple Request 參數
     * 支援使用服務名稱代替埠號
@@ -664,7 +665,10 @@ https://sourceforge.net/projects/pcap-dnsproxy
     * 填入的協定可隨意組合，只填 IPv4 或 IPv6 配合 UDP 或 TCP 時，只使用指定協定向遠端 DNS 伺服器發出請求
     * 同時填入 IPv4 和 IPv6 或直接不填任何網路層協定時，程式將根據網路環境自動選擇所使用的協定
     * 同時填入 TCP 和 UDP 等於只填入 TCP 因為 UDP 為 DNS 的標準網路層協定，所以即使填入 TCP 失敗時也會使用 UDP 請求
-  * DNSCurve Payload Size - DNSCurve EDNS 標籤附帶使用的最大載荷長度，同時亦為發送請求的總長度，並決定請求的填充長度：最小為 DNS 協定實現要求的 512(bytes)，留空則為 512(bytes)
+  * DNSCurve Payload Size - DNSCurve 標籤附帶使用的最大載荷長度，同時亦為發送請求的總長度，並決定請求的填充長度：單位為位元組
+    * 最小為 DNS 協定實現要求的 512，留空則為 512
+    * 最大為 1500 減去 DNSCurve 頭長度，建議不要超過 1220
+    * DNSCurve 協定要求此值必須為 64 的倍數
   * DNSCurve Reliable Socket Timeout - 可靠 DNSCurve 協定埠超時時間，可靠埠指 TCP 協定：單位為毫秒，最小為 500，可留空，留空時為 3000
   * DNSCurve Unreliable Socket Timeout - 不可靠 DNSCurve 協定埠超時時間，不可靠埠指 UDP 協定：單位為毫秒，最小為 500，可留空，留空時為 2000
   * DNSCurve Encryption - 啟用加密，DNSCurve 協定支援加密和非加密模式：開啟為 1 /關閉為 0
@@ -820,13 +824,20 @@ Hosts 設定檔分為多個提供不同功能的區域
 
 * Address Hosts - 解析結果位址其他清單
   * 本區域資料用於替換解析結果中的位址，提供更精確的 Hosts 自訂能力
+  * 目標位址區域支援使用網路首碼格式，可根據指定的前置長度替換解析結果中位址的首碼資料
+    * 使用網路首碼格式時第一個目標位址條目必須指定前置長度，其它目標位址可省略不寫也可全部寫上
+    * 網路首碼格式指定後將應用到所有目標位址上，注意整個條目只能指定同一個前置長度
   * 例如有一個 [Address Hosts] 下有效資料區域：
 
     127.0.0.1|127.0.0.2 127.0.0.0-127.255.255.255
+    255.255.255.255/24 255.254.253.252
     ::1 ::-::FFFF
+    FFFF:EEEE::/64|FFFF:EEEE:: FFFF::EEEE|FFFF::EEEF-FFFF::FFFF
 
   * 解析結果的位址範圍為 127.0.0.0 到 127.255.255.255 時將被替換為 127.0.0.1 或 127.0.0.2
+  * 解析結果的位址為 255.254.253.252 時將被替換為 255.255.255.252
   * 解析結果的位址範圍為 :: 到 ::FFFF 時將被替換為 ::1
+  * 解析結果的位址範圍為 FFFF::EEEE 或 FFFF::EEEF 到 FFFF::FFFF 時將被替換為 FFFF:FFFF::EEEE 或 FFFF:FFFF::xxxx:xxxx:xxxx:xxxx 或 FFFF:EEEE::EEEE 或 FFFF:EEEE::xxxx:xxxx:xxxx:xxxx
 
 
 * Stop - 臨時停止讀取標籤
@@ -925,7 +936,6 @@ IPFilter 設定檔分為 Blacklist/黑名單區域 和 IPFilter/位址過濾區�
 位址過濾黑名單或白名單由設定檔的 IPFilter Type 值決定，Deny 禁止/黑名單和 Permit 允許/白名單
 有效參數格式為 "開始位址 - 結束位址, 過濾等級, 條目簡介注釋"（不含引號）
   * 同時支援 IPv4 和 IPv6 位址，但填寫時請分開為2個條目
-  * 同一類型的位址位址段有重複的條目將會被自動合併
 
 
 * Local Routing - 境內路由表區域
@@ -936,8 +946,7 @@ IPFilter 設定檔分為 Blacklist/黑名單區域 和 IPFilter/位址過濾區�
 
 
 * Stop - 臨時停止讀取標籤
-  * 在需要停止讀取的資料前添加 "[Stop]"（不含引號） 標籤即可在中途停止對檔的讀取，直到再次遇到臨時停止讀取標籤或其它標籤時再重新開始讀取
-  * 具體情況參見上文的介紹
+  * 更詳細的介紹參見上文對本功能的介紹
 
 
 -------------------------------------------------------------------------------

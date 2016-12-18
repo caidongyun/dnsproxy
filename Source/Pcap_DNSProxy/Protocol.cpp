@@ -22,18 +22,20 @@
 //Convert address strings to binary
 bool AddressStringToBinary(
 	const uint16_t Protocol, 
-	const uint8_t * const AddrString, 
+	const uint8_t * const AddrBuffer, 
 	void * const OriginalAddr, 
 	ssize_t * const ErrorCode)
 {
-//Initialization
-	std::string InnerAddrString((const char *)AddrString);
+//Protocol check
 	if (Protocol == AF_INET6)
 		memset(OriginalAddr, 0, sizeof(in6_addr));
 	else if (Protocol == AF_INET)
 		memset(OriginalAddr, 0, sizeof(in_addr));
 	else 
 		return false;
+	
+//Initialization
+	std::string AddrString((const char *)AddrBuffer);
 	if (ErrorCode != nullptr)
 		*ErrorCode = 0;
 
@@ -48,10 +50,10 @@ bool AddressStringToBinary(
 	if (Protocol == AF_INET6)
 	{
 	//Check IPv6 addresses.
-		if (InnerAddrString.find(ASCII_COLON) == std::string::npos || InnerAddrString.find(ASCII_PERIOD) != std::string::npos || 
-			InnerAddrString.find("::") != InnerAddrString.rfind("::"))
+		if (AddrString.find(ASCII_COLON) == std::string::npos || AddrString.find(ASCII_PERIOD) != std::string::npos || 
+			AddrString.find("::") != AddrString.rfind("::"))
 				return false;
-		for (const auto &StringIter:InnerAddrString)
+		for (const auto &StringIter:AddrString)
 		{
 			if (StringIter < ASCII_ZERO || 
 				(StringIter > ASCII_COLON && StringIter < ASCII_UPPERCASE_A) || 
@@ -61,22 +63,21 @@ bool AddressStringToBinary(
 		}
 
 	//Check abbreviation format.
-		if (InnerAddrString.find(ASCII_COLON) == std::string::npos)
+		if (AddrString.find(ASCII_COLON) == std::string::npos)
 		{
-			InnerAddrString.clear();
-			InnerAddrString.append("::");
-			InnerAddrString.append((const char *)AddrString);
+			AddrString = ("::");
+			AddrString.append((const char *)AddrBuffer);
 		}
-		else if (InnerAddrString.find(ASCII_COLON) == InnerAddrString.rfind(ASCII_COLON))
+		else if (AddrString.find(ASCII_COLON) == AddrString.rfind(ASCII_COLON))
 		{
-			InnerAddrString.replace(InnerAddrString.find(ASCII_COLON), 1U, ("::"));
+			AddrString.replace(AddrString.find(ASCII_COLON), 1U, ("::"));
 		}
 
 	//Convert to binary.
 	#if defined(PLATFORM_WIN_XP)
 		SockLength = sizeof(sockaddr_in6);
 		if (WSAStringToAddressA(
-				(char *)InnerAddrString.c_str(), 
+				(char *)AddrString.c_str(), 
 				AF_INET6, 
 				nullptr, 
 				(PSOCKADDR)&SockAddr, 
@@ -90,7 +91,7 @@ bool AddressStringToBinary(
 
 		memcpy_s(OriginalAddr, sizeof(((PSOCKADDR_IN6)&SockAddr)->sin6_addr), &((PSOCKADDR_IN6)&SockAddr)->sin6_addr, sizeof(((PSOCKADDR_IN6)&SockAddr)->sin6_addr));
 	#else
-		Result = inet_pton(AF_INET6, InnerAddrString.c_str(), OriginalAddr);
+		Result = inet_pton(AF_INET6, AddrString.c_str(), OriginalAddr);
 		if (Result == SOCKET_ERROR || Result == 0)
 		{
 			if (Result != 0 && ErrorCode != nullptr)
@@ -103,10 +104,10 @@ bool AddressStringToBinary(
 	else if (Protocol == AF_INET)
 	{
 	//Check IPv4 addresses.
-		if (InnerAddrString.find(ASCII_PERIOD) == std::string::npos || InnerAddrString.find(ASCII_COLON) != std::string::npos)
+		if (AddrString.find(ASCII_PERIOD) == std::string::npos || AddrString.find(ASCII_COLON) != std::string::npos)
 			return false;
 		size_t CommaNum = 0;
-		for (const auto &StringIter:InnerAddrString)
+		for (const auto &StringIter:AddrString)
 		{
 			if ((StringIter != ASCII_PERIOD && StringIter < ASCII_ZERO) || StringIter > ASCII_NINE)
 				return false;
@@ -115,43 +116,42 @@ bool AddressStringToBinary(
 		}
 
 	//Delete zeros before whole data.
-		while (InnerAddrString.length() > 1U && InnerAddrString[0] == ASCII_ZERO && InnerAddrString[1U] != ASCII_PERIOD)
-			InnerAddrString.erase(0, 1U);
+		while (AddrString.length() > 1U && AddrString.front() == ASCII_ZERO && AddrString.at(1U) != ASCII_PERIOD)
+			AddrString.erase(0, 1U);
 
 	//Check abbreviation format.
 		switch (CommaNum)
 		{
 			case 0:
 			{
-				InnerAddrString.clear();
-				InnerAddrString.append("0.0.0.");
-				InnerAddrString.append((const char *)AddrString);
+				AddrString = ("0.0.0.");
+				AddrString.append((const char *)AddrBuffer);
 			}break;
 			case 1U:
 			{
-				InnerAddrString.replace(InnerAddrString.find(ASCII_PERIOD), 1U, (".0.0."));
+				AddrString.replace(AddrString.find(ASCII_PERIOD), 1U, (".0.0."));
 			}break;
 			case 2U:
 			{
-				InnerAddrString.replace(InnerAddrString.find(ASCII_PERIOD), 1U, (".0."));
+				AddrString.replace(AddrString.find(ASCII_PERIOD), 1U, (".0."));
 			}break;
 		}
 
 	//Delete zeros before data.
-		while (InnerAddrString.find(".00") != std::string::npos)
-			InnerAddrString.replace(InnerAddrString.find(".00"), 3U, ("."));
-		while (InnerAddrString.find(".0") != std::string::npos)
-			InnerAddrString.replace(InnerAddrString.find(".0"), 2U, ("."));
-		while (InnerAddrString.find("..") != std::string::npos)
-			InnerAddrString.replace(InnerAddrString.find(".."), 2U, (".0."));
-		if (InnerAddrString.at(InnerAddrString.length() - 1U) == ASCII_PERIOD)
-			InnerAddrString.append("0");
+		while (AddrString.find(".00") != std::string::npos)
+			AddrString.replace(AddrString.find(".00"), 3U, ("."));
+		while (AddrString.find(".0") != std::string::npos)
+			AddrString.replace(AddrString.find(".0"), 2U, ("."));
+		while (AddrString.find("..") != std::string::npos)
+			AddrString.replace(AddrString.find(".."), 2U, (".0."));
+		if (AddrString.at(AddrString.length() - 1U) == ASCII_PERIOD)
+			AddrString.append("0");
 
 	//Convert to binary.
 	#if defined(PLATFORM_WIN_XP)
 		SockLength = sizeof(sockaddr_in);
 		if (WSAStringToAddressA(
-				(char *)InnerAddrString.c_str(), 
+				(char *)AddrString.c_str(), 
 				AF_INET, 
 				nullptr, 
 				(PSOCKADDR)&SockAddr, 
@@ -165,7 +165,7 @@ bool AddressStringToBinary(
 
 		memcpy_s(OriginalAddr, sizeof(((PSOCKADDR_IN)&SockAddr)->sin_addr), &((PSOCKADDR_IN)&SockAddr)->sin_addr, sizeof(((PSOCKADDR_IN)&SockAddr)->sin_addr));
 	#else
-		Result = inet_pton(AF_INET, InnerAddrString.c_str(), OriginalAddr);
+		Result = inet_pton(AF_INET, AddrString.c_str(), OriginalAddr);
 		if (Result == SOCKET_ERROR || Result == 0)
 		{
 			if (Result != 0 && ErrorCode != nullptr)
@@ -240,15 +240,15 @@ size_t AddressesComparing(
 {
 	if (Protocol == AF_INET6)
 	{
-		for (size_t Index = 0;Index < sizeof(in6_addr) / sizeof(uint16_t);++Index)
+		for (size_t Index = 0;Index < sizeof(in6_addr) / sizeof(uint8_t);++Index)
 		{
-			if (ntohs(((in6_addr *)OriginalAddrBegin)->s6_words[Index]) > ntohs(((in6_addr *)OriginalAddrEnd)->s6_words[Index]))
+			if (((in6_addr *)OriginalAddrBegin)->s6_addr[Index] > ((in6_addr *)OriginalAddrEnd)->s6_addr[Index])
 			{
 				return ADDRESS_COMPARE_GREATER;
 			}
-			else if (((in6_addr *)OriginalAddrBegin)->s6_words[Index] == ((in6_addr *)OriginalAddrEnd)->s6_words[Index])
+			else if (((in6_addr *)OriginalAddrBegin)->s6_addr[Index] == ((in6_addr *)OriginalAddrEnd)->s6_addr[Index])
 			{
-				if (Index == sizeof(in6_addr) / sizeof(uint16_t) - 1U)
+				if (Index == sizeof(in6_addr) / sizeof(uint8_t) - 1U)
 					return ADDRESS_COMPARE_EQUAL;
 				else 
 					continue;
@@ -260,27 +260,27 @@ size_t AddressesComparing(
 	}
 	else if (Protocol == AF_INET)
 	{
-		if (((in_addr *)OriginalAddrBegin)->s_net > ((in_addr *)OriginalAddrEnd)->s_net)
+		if (*((uint8_t *)&((in_addr *)OriginalAddrBegin)->s_addr) > *((uint8_t *)&((in_addr *)OriginalAddrEnd)->s_addr))
 		{
 			return ADDRESS_COMPARE_GREATER;
 		}
-		else if (((in_addr *)OriginalAddrBegin)->s_net == ((in_addr *)OriginalAddrEnd)->s_net)
+		else if (*((uint8_t *)&((in_addr *)OriginalAddrBegin)->s_addr) == *((uint8_t *)&((in_addr *)OriginalAddrEnd)->s_addr))
 		{
-			if (((in_addr *)OriginalAddrBegin)->s_host > ((in_addr *)OriginalAddrEnd)->s_host)
+			if (*((uint8_t *)&((in_addr *)OriginalAddrBegin)->s_addr + sizeof(uint8_t)) > *((uint8_t *)&((in_addr *)OriginalAddrEnd)->s_addr + sizeof(uint8_t)))
 			{
 				return ADDRESS_COMPARE_GREATER;
 			}
-			else if (((in_addr *)OriginalAddrBegin)->s_host == ((in_addr *)OriginalAddrEnd)->s_host)
+			else if (*((uint8_t *)&((in_addr *)OriginalAddrBegin)->s_addr + sizeof(uint8_t)) == *((uint8_t *)&((in_addr *)OriginalAddrEnd)->s_addr + sizeof(uint8_t)))
 			{
-				if (((in_addr *)OriginalAddrBegin)->s_lh > ((in_addr *)OriginalAddrEnd)->s_lh)
+				if (*((uint8_t *)&((in_addr *)OriginalAddrBegin)->s_addr + sizeof(uint8_t) * 2U) > *((uint8_t *)&((in_addr *)OriginalAddrEnd)->s_addr + sizeof(uint8_t) * 2U))
 				{
 					return ADDRESS_COMPARE_GREATER;
 				}
-				else if (((in_addr *)OriginalAddrBegin)->s_lh == ((in_addr *)OriginalAddrEnd)->s_lh)
+				else if (*((uint8_t *)&((in_addr *)OriginalAddrBegin)->s_addr + sizeof(uint8_t) * 2U) == *((uint8_t *)&((in_addr *)OriginalAddrEnd)->s_addr + sizeof(uint8_t) * 2U))
 				{
-					if (((in_addr *)OriginalAddrBegin)->s_impno > ((in_addr *)OriginalAddrEnd)->s_impno)
+					if (*((uint8_t *)&((in_addr *)OriginalAddrBegin)->s_addr + sizeof(uint8_t) * 3U) > *((uint8_t *)&((in_addr *)OriginalAddrEnd)->s_addr + sizeof(uint8_t) * 3U))
 						return ADDRESS_COMPARE_GREATER;
-					else if (((in_addr *)OriginalAddrBegin)->s_impno == ((in_addr *)OriginalAddrEnd)->s_impno)
+					else if (*((uint8_t *)&((in_addr *)OriginalAddrBegin)->s_addr + sizeof(uint8_t) * 3U) == *((uint8_t *)&((in_addr *)OriginalAddrEnd)->s_addr + sizeof(uint8_t) * 3U))
 						return ADDRESS_COMPARE_EQUAL;
 					else 
 						return ADDRESS_COMPARE_LESS;
@@ -304,90 +304,179 @@ size_t AddressesComparing(
 //Check IPv4/IPv6 special addresses
 bool CheckSpecialAddress(
 	const uint16_t Protocol, 
-	void * const Addr, 
+	void * const OriginalAddr, 
 	const bool IsPrivateUse, 
-	const uint8_t * const Domain)
+	const uint8_t * const DomainBuffer)
 {
 	if (Protocol == AF_INET6)
 	{
 		if (
-		//DNS Poisoning addresses from CERNET2, visit https://code.google.com/p/goagent/issues/detail?id=17571.
-//			(((in6_addr *)Addr)->s6_words[0] == 0 && ((in6_addr *)Addr)->s6_words[1U] == 0 && ((in6_addr *)Addr)->s6_words[2U] == 0 && ((in6_addr *)Addr)->s6_words[3U] == 0 && ((in6_addr *)Addr)->s6_bytes[8U] == 0x90 && ((in6_addr *)Addr)->s6_words[6U] == 0 && ((in6_addr *)Addr)->s6_words[7U] == 0) || //::90xx:xxxx:0:0, including in reserved address ranges
-//			(ntohs(((in6_addr *)Addr)->s6_words[0]) == 0x0010 && ((in6_addr *)Addr)->s6_words[1U] == 0 && ((in6_addr *)Addr)->s6_words[2U] == 0 && ((in6_addr *)Addr)->s6_words[3U] == 0 && ((in6_addr *)Addr)->s6_words[4U] == 0 && ((in6_addr *)Addr)->s6_words[5U] == 0 && ((in6_addr *)Addr)->s6_words[6U] == 0 && ntohs(((in6_addr *)Addr)->s6_words[7U]) == 0x2222) || //10::2222, including in reserved address ranges
-//			(ntohs(((in6_addr *)Addr)->s6_words[0]) == 0x0021 && ntohs(((in6_addr *)Addr)->s6_words[1U]) == 0x0002 && ((in6_addr *)Addr)->s6_words[2U] == 0 && ((in6_addr *)Addr)->s6_words[3U] == 0 && ((in6_addr *)Addr)->s6_words[4U] == 0 && ((in6_addr *)Addr)->s6_words[5U] == 0 && ((in6_addr *)Addr)->s6_words[6U] == 0 && ntohs(((in6_addr *)Addr)->s6_words[7U] == 0x0002) || //21:2::2, including in reserved address ranges
-//			(ntohs(((in6_addr *)Addr)->s6_words[0]) == 0x0101 && ((in6_addr *)Addr)->s6_words[1U] == 0 && ((in6_addr *)Addr)->s6_words[2U] == 0 && ((in6_addr *)Addr)->s6_words[3U] == 0 && ((in6_addr *)Addr)->s6_words[4U] == 0 && ((in6_addr *)Addr)->s6_words[5U] == 0 && ((in6_addr *)Addr)->s6_words[6U] == 0 && ntohs(((in6_addr *)Addr)->s6_words[7U]) == 0x1234) || //101::1234, including in reserved address ranges
+		//DNS Poisoning addresses from CERNET2, visit https://code.google.com/p/goagent/issues/detail?id=17571.		
+/*			(((in6_addr *)OriginalAddr)->s6_addr[0] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[1U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[2U] == 0 && 
+			((in6_addr *)OriginalAddr)->s6_addr[3U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[4U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[5U] == 0 && 
+			((in6_addr *)OriginalAddr)->s6_addr[6U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[7U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[8U] == 0x90 && 
+			((in6_addr *)OriginalAddr)->s6_addr[12U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[13U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[14U] == 0 && 
+			((in6_addr *)OriginalAddr)->s6_addr[15U] == 0) || //::90xx:xxxx:0:0, including in reserved address ranges
+			(((in6_addr *)OriginalAddr)->s6_addr[0] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[1U] == 0x10 && ((in6_addr *)OriginalAddr)->s6_addr[2U] == 0 && 
+			((in6_addr *)OriginalAddr)->s6_addr[3U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[4U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[5U] == 0 && 
+			((in6_addr *)OriginalAddr)->s6_addr[6U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[7U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[8U] == 0 && 
+			((in6_addr *)OriginalAddr)->s6_addr[9U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[10U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[11U] == 0 && 
+			((in6_addr *)OriginalAddr)->s6_addr[12U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[13U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[14U] == 0x22 && 
+			((in6_addr *)OriginalAddr)->s6_addr[15U] == 0x22) || //10::2222, including in reserved address ranges
+			(((in6_addr *)OriginalAddr)->s6_addr[0] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[1U] == 0x21 && ((in6_addr *)OriginalAddr)->s6_addr[2U] == 0 && 
+			((in6_addr *)OriginalAddr)->s6_addr[3U] == 0x02 && ((in6_addr *)OriginalAddr)->s6_addr[4U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[5U] == 0 && 
+			((in6_addr *)OriginalAddr)->s6_addr[6U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[7U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[8U] == 0 && 
+			((in6_addr *)OriginalAddr)->s6_addr[9U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[10U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[11U] == 0 && 
+			((in6_addr *)OriginalAddr)->s6_addr[12U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[13U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[14U] == 0 && 
+			((in6_addr *)OriginalAddr)->s6_addr[15U] == 0x02) || //21:2::2, including in reserved address ranges
+			(((in6_addr *)OriginalAddr)->s6_addr[0] == 0x01 && ((in6_addr *)OriginalAddr)->s6_addr[1U] == 0x01 && ((in6_addr *)OriginalAddr)->s6_addr[2U] == 0 && 
+			((in6_addr *)OriginalAddr)->s6_addr[3U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[4U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[5U] == 0 && 
+			((in6_addr *)OriginalAddr)->s6_addr[6U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[7U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[8U] == 0 && 
+			((in6_addr *)OriginalAddr)->s6_addr[9U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[10U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[11U] == 0 && 
+			((in6_addr *)OriginalAddr)->s6_addr[12U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[13U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[14U] == 0x12 && 
+			((in6_addr *)OriginalAddr)->s6_addr[15U] == 34) || //101::1234, including in reserved address ranges
 		//New DNS Poisoning addresses which had been added in August 2016
-//			(ntohs(((in6_addr *)Addr)->s6_words[0]) == 0x0200 && ntohs(((in6_addr *)Addr)->s6_words[1U]) == 0x0002 && 
-//			((ntohs((((in6_addr *)Addr)->s6_words[2U]) == 0x0807 && ntohs(((in6_addr *)Addr)->s6_words[3U]) == 0xC62D))) || //200:2:807:C62D::, including in reserved address ranges
-//			((ntohs(((in6_addr *)Addr)->s6_words[2U]) == 0x253D && ntohs(((in6_addr *)Addr)->s6_words[3U]) == 0x369E)) || //200:2:253D:369E::, including in reserved address ranges
-//			((ntohs(((in6_addr *)Addr)->s6_words[2U]) == 0x2E52 && ntohs(((in6_addr *)Addr)->s6_words[3U]) == 0xAE44)) || //200:2:2E52:AE44::, including in reserved address ranges
-//			((ntohs(((in6_addr *)Addr)->s6_words[2U]) == 0x3B18 && ntohs(((in6_addr *)Addr)->s6_words[3U]) == 0x03AD)) || //200:2:3B18:3AD::, including in reserved address ranges
-//			((ntohs(((in6_addr *)Addr)->s6_words[2U]) == 0x4E10 && ntohs(((in6_addr *)Addr)->s6_words[3U]) == 0x310F)) || //200:2:4E10:310F::, including in reserved address ranges
-//			((ntohs(((in6_addr *)Addr)->s6_words[2U]) == 0x5D2E && ntohs(((in6_addr *)Addr)->s6_words[3U]) == 0x0859)) || //200:2:5D2E:859::, including in reserved address ranges
-//			((ntohs(((in6_addr *)Addr)->s6_words[2U]) == 0x9F6A && ntohs(((in6_addr *)Addr)->s6_words[3U]) == 0x794B)) || //200:2:9F6A:794B::, including in reserved address ranges
-//			((ntohs(((in6_addr *)Addr)->s6_words[2U]) == 0xCB62 && ntohs(((in6_addr *)Addr)->s6_words[3U]) == 0x0741)) || //200:2:CB62:741::, including in reserved address ranges
-//			((ntohs(((in6_addr *)Addr)->s6_words[2U]) == 0xF3B9 && ntohs(((in6_addr *)Addr)->s6_words[3U]) == 0xBB27))) && //200:2:F3B9:BB27::, including in reserved address ranges
-//			((in6_addr *)Addr)->s6_words[4U] == 0 && ((in6_addr *)Addr)->s6_words[5U] == 0 && ((in6_addr *)Addr)->s6_words[6U] == 0 && ((in6_addr *)Addr)->s6_words[7U] == 0) || 
-			(ntohs(((in6_addr *)Addr)->s6_words[0]) == 0x2001 && 
-			((IsPrivateUse && ((in6_addr *)Addr)->s6_words[1U] == 0 && ((in6_addr *)Addr)->s6_words[2U] == 0 && ((in6_addr *)Addr)->s6_words[3U] == 0 && ((in6_addr *)Addr)->s6_words[4U] == 0 && ((in6_addr *)Addr)->s6_words[5U] == 0 && ((in6_addr *)Addr)->s6_words[6U] == 0 && ntohs(((in6_addr *)Addr)->s6_words[7U]) == 0x0212) || //2001::212
-			(ntohs(((in6_addr *)Addr)->s6_words[1U]) == 0x0DA8 && ntohs(((in6_addr *)Addr)->s6_words[2U]) == 0x0112 && ((in6_addr *)Addr)->s6_words[3U] == 0 && ((in6_addr *)Addr)->s6_words[4U] == 0 && ((in6_addr *)Addr)->s6_words[5U] == 0 && ((in6_addr *)Addr)->s6_words[6U] == 0 && ntohs(((in6_addr *)Addr)->s6_words[7U]) == 0x21AE))) || //2001:DA8:112::21AE
-			(ntohs(((in6_addr *)Addr)->s6_words[0]) == 0x2003 && ntohs(((in6_addr *)Addr)->s6_words[1U]) == 0x00FF && ntohs(((in6_addr *)Addr)->s6_words[2U]) == 0x0001 && ntohs(((in6_addr *)Addr)->s6_words[3U]) == 0x0002 && ntohs(((in6_addr *)Addr)->s6_words[4U]) == 0x0003 && ntohs(((in6_addr *)Addr)->s6_words[5U]) == 0x0004 && ntohs(((in6_addr *)Addr)->s6_words[6U]) == 0x5FFF) || //2003:FF:1:2:3:4:5FFF:xxxx
-			(ntohs(((in6_addr *)Addr)->s6_words[0]) == 0x2123 && ((in6_addr *)Addr)->s6_words[1U] == 0 && ((in6_addr *)Addr)->s6_words[2U] == 0 && ((in6_addr *)Addr)->s6_words[3U] == 0 && ((in6_addr *)Addr)->s6_words[4U] == 0 && ((in6_addr *)Addr)->s6_words[5U] == 0 && ((in6_addr *)Addr)->s6_words[6U] == 0 && ntohs(((in6_addr *)Addr)->s6_words[7U]) == 0x3E12) || //2123::3E12
+			(((in6_addr *)OriginalAddr)->s6_addr[0] == 0x02 && ((in6_addr *)OriginalAddr)->s6_addr[1U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[2U] == 0 && 
+			((in6_addr *)OriginalAddr)->s6_addr[3U] == 0x02 && 
+			((((in6_addr *)OriginalAddr)->s6_addr[4U] == 0x08 && ((in6_addr *)OriginalAddr)->s6_addr[5U] == 0x07 && ((in6_addr *)OriginalAddr)->s6_addr[6U] == 0xC6 && ((in6_addr *)OriginalAddr)->s6_addr[7U] == 0x2D) || //200:2:807:C62D::, including in reserved address ranges
+			(((in6_addr *)OriginalAddr)->s6_addr[4U] == 0x25 && ((in6_addr *)OriginalAddr)->s6_addr[5U] == 0x3D && ((in6_addr *)OriginalAddr)->s6_addr[6U] == 0x36 && ((in6_addr *)OriginalAddr)->s6_addr[7U] == 0x9E) || //200:2:253D:369E::, including in reserved address ranges
+			(((in6_addr *)OriginalAddr)->s6_addr[4U] == 0x2E && ((in6_addr *)OriginalAddr)->s6_addr[5U] == 0x52 && ((in6_addr *)OriginalAddr)->s6_addr[6U] == 0xAE && ((in6_addr *)OriginalAddr)->s6_addr[7U] == 0x44) || //200:2:2E52:AE44::, including in reserved address ranges
+			(((in6_addr *)OriginalAddr)->s6_addr[4U] == 0x3B && ((in6_addr *)OriginalAddr)->s6_addr[5U] == 0x18 && ((in6_addr *)OriginalAddr)->s6_addr[6U] == 0x03 && ((in6_addr *)OriginalAddr)->s6_addr[7U] == 0xAD) || //200:2:3B18:3AD::, including in reserved address ranges
+			(((in6_addr *)OriginalAddr)->s6_addr[4U] == 0x4E && ((in6_addr *)OriginalAddr)->s6_addr[5U] == 0x10 && ((in6_addr *)OriginalAddr)->s6_addr[6U] == 0x31 && ((in6_addr *)OriginalAddr)->s6_addr[7U] == 0x0F) || //200:2:4E10:310F::, including in reserved address ranges
+			(((in6_addr *)OriginalAddr)->s6_addr[4U] == 0x5D && ((in6_addr *)OriginalAddr)->s6_addr[5U] == 0x2E && ((in6_addr *)OriginalAddr)->s6_addr[6U] == 0x08 && ((in6_addr *)OriginalAddr)->s6_addr[7U] == 0x59) || //200:2:5D2E:859::, including in reserved address ranges
+			(((in6_addr *)OriginalAddr)->s6_addr[4U] == 0x9F && ((in6_addr *)OriginalAddr)->s6_addr[5U] == 0x6A && ((in6_addr *)OriginalAddr)->s6_addr[6U] == 0x79 && ((in6_addr *)OriginalAddr)->s6_addr[7U] == 0x4B) || //200:2:9F6A:794B::, including in reserved address ranges
+			(((in6_addr *)OriginalAddr)->s6_addr[4U] == 0xCB && ((in6_addr *)OriginalAddr)->s6_addr[5U] == 0x62 && ((in6_addr *)OriginalAddr)->s6_addr[6U] == 0x07 && ((in6_addr *)OriginalAddr)->s6_addr[7U] == 0x41) || //200:2:CB62:741::, including in reserved address ranges
+			(((in6_addr *)OriginalAddr)->s6_addr[4U] == 0xF3 && ((in6_addr *)OriginalAddr)->s6_addr[5U] == 0xB9 && ((in6_addr *)OriginalAddr)->s6_addr[6U] == 0xBB && ((in6_addr *)OriginalAddr)->s6_addr[7U] == 0x27)) && //200:2:F3B9:BB27::, including in reserved address ranges
+			((in6_addr *)OriginalAddr)->s6_addr[8U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[9U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[10U] == 0 && 
+			((in6_addr *)OriginalAddr)->s6_addr[11U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[12U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[13U] == 0 && 
+			((in6_addr *)OriginalAddr)->s6_addr[14U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[15U] == 0) || 
+*/
+			(((in6_addr *)OriginalAddr)->s6_addr[0] == 0x20 && ((in6_addr *)OriginalAddr)->s6_addr[1U] == 0x01 && 
+			((IsPrivateUse && ((in6_addr *)OriginalAddr)->s6_addr[2U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[3U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[4U] == 0 && 
+			((in6_addr *)OriginalAddr)->s6_addr[5U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[6U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[7U] == 0 && 
+			((in6_addr *)OriginalAddr)->s6_addr[8U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[9U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[10U] == 0 && 
+			((in6_addr *)OriginalAddr)->s6_addr[11U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[12U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[13U] == 0 && 
+			((in6_addr *)OriginalAddr)->s6_addr[14U] == 0x02 && ((in6_addr *)OriginalAddr)->s6_addr[15U] == 0x12) || //2001::212
+			(((in6_addr *)OriginalAddr)->s6_addr[2U] == 0x0D && ((in6_addr *)OriginalAddr)->s6_addr[3U] == 0xA8 && ((in6_addr *)OriginalAddr)->s6_addr[4U] == 0x01 && 
+			((in6_addr *)OriginalAddr)->s6_addr[5U] == 0x12 && ((in6_addr *)OriginalAddr)->s6_addr[6U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[7U] == 0 && 
+			((in6_addr *)OriginalAddr)->s6_addr[8U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[9U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[10U] == 0 && 
+			((in6_addr *)OriginalAddr)->s6_addr[11U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[12U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[13U] == 0 && 
+			((in6_addr *)OriginalAddr)->s6_addr[14U] == 0x21 && ((in6_addr *)OriginalAddr)->s6_addr[15U] == 0xAE))) || //2001:DA8:112::21AE
+			(((in6_addr *)OriginalAddr)->s6_addr[0] == 0x20 && ((in6_addr *)OriginalAddr)->s6_addr[1U] == 0x03 && ((in6_addr *)OriginalAddr)->s6_addr[2U] == 0 && 
+			((in6_addr *)OriginalAddr)->s6_addr[3U] == 0xFF && ((in6_addr *)OriginalAddr)->s6_addr[4U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[5U] == 0x01 && 
+			((in6_addr *)OriginalAddr)->s6_addr[6U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[7U] == 0x02 && ((in6_addr *)OriginalAddr)->s6_addr[8U] == 0 && 
+			((in6_addr *)OriginalAddr)->s6_addr[9U] == 0x03 && ((in6_addr *)OriginalAddr)->s6_addr[10U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[11U] == 0x04 && 
+			((in6_addr *)OriginalAddr)->s6_addr[12U] == 0x5F && ((in6_addr *)OriginalAddr)->s6_addr[13U] == 0xFF) || //2003:FF:1:2:3:4:5FFF:xxxx
+			(((in6_addr *)OriginalAddr)->s6_addr[0] == 0x21 && ((in6_addr *)OriginalAddr)->s6_addr[1U] == 0x23 && ((in6_addr *)OriginalAddr)->s6_addr[2U] == 0 && 
+			((in6_addr *)OriginalAddr)->s6_addr[3U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[4U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[5U] == 0 && 
+			((in6_addr *)OriginalAddr)->s6_addr[6U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[7U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[8U] == 0 && 
+			((in6_addr *)OriginalAddr)->s6_addr[9U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[10U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[11U] == 0 && 
+			((in6_addr *)OriginalAddr)->s6_addr[12U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[13U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[14U] == 0x3E && 
+			((in6_addr *)OriginalAddr)->s6_addr[15U] == 0x12) || //2123::3E12
 		//Special-use or reserved addresses, visit https://en.wikipedia.org/wiki/IPv6_address#Presentation and https://en.wikipedia.org/wiki/Reserved_IP_addresses#Reserved_IPv6_addresses.
 		//Also https://www.iana.org/assignments/ipv6-address-space/ipv6-address-space.xhtml and https://www.iana.org/assignments/iana-ipv6-special-registry/iana-ipv6-special-registry.xhtml
-			(ntohs(((in6_addr *)Addr)->s6_words[0]) >= 0 && ntohs(((in6_addr *)Addr)->s6_words[0]) <= 0x00FF && //Reserved by IETF(::/8)
-			!(((in6_addr *)Addr)->s6_words[1U] == 0 && ((in6_addr *)Addr)->s6_words[2U] == 0 && ((in6_addr *)Addr)->s6_words[3U] == 0 && ((in6_addr *)Addr)->s6_words[4U] == 0 && 
-//			(((in6_addr *)Addr)->s6_words[5U] == 0 || //IPv4-Compatible Contrast addresses(::/96, Section 2.5.5.1 in RFC 4291), including in reserved address ranges
-//			((in6_addr *)Addr)->s6_words[5U] == 0 && ((in6_addr *)Addr)->s6_words[6U] == 0 && ((in6_addr *)Addr)->s6_words[7U] == 0 || //Unspecified addresses(::, Section 2.5.2 in RFC 4291), including in reserved address ranges
-			((in6_addr *)Addr)->s6_words[5U] == 0 && ((in6_addr *)Addr)->s6_words[6U] == 0 && ntohs(((in6_addr *)Addr)->s6_words[7U]) == 0x0001)) || //Loopback addresses(::1, Section 2.5.3 in RFC 4291)
-//			ntohs(((in6_addr *)Addr)->s6_words[5U]) == 0xFFFF)) || //IPv4-mapped addresses(::FFFF:0:0/96, Section 2.5.5 in RFC 4291), including in reserved address ranges
-//			(IsPrivateUse && ntohs(((in6_addr *)Addr)->s6_words[0]) == 0x0064 && ntohs(((in6_addr *)Addr)->s6_words[1U]) == 0xFF9B && ((in6_addr *)Addr)->s6_words[2U] == 0 && ((in6_addr *)Addr)->s6_words[3U] == 0 && ((in6_addr *)Addr)->s6_words[4U] == 0 && ((in6_addr *)Addr)->s6_words[5U] == 0) || //Well Known Prefix addresses(64:FF9B::/96, Section 2.1 in RFC 4773), including in reserved address ranges
-			(ntohs(((in6_addr *)Addr)->s6_words[0]) >= 0x0100 && ntohs(((in6_addr *)Addr)->s6_words[0]) <= 0x01FF) || //Reserved by IETF(0100::/8)
-//			(ntohs(((in6_addr *)Addr)->s6_words[0]) == 0x0100 && ((in6_addr *)Addr)->s6_words[1U] == 0 && ((in6_addr *)Addr)->s6_words[2U] == 0 && ((in6_addr *)Addr)->s6_words[3U] == 0) || //Discard Prefix addresses(100::/64, Section 4 RFC 6666), including in reserved address ranges
-			(ntohs(((in6_addr *)Addr)->s6_words[0]) >= 0x0200 && (ntohs(((in6_addr *)Addr)->s6_words[0]) <= 0x03FF)) || //Reserved by IETF(0200::/7), deprecated as of RFC 4048 and formerly an OSI NSAP-mapped prefix set in RFC 4548
-//			(ntohs(((in6_addr *)Addr)->s6_words[0]) >= 0x0400 && (ntohs(((in6_addr *)Addr)->s6_words[0]) <= 0x07FF)) || //Reserved by IETF(0400::/6)
-//			(ntohs(((in6_addr *)Addr)->s6_words[0]) >= 0x0800 && (ntohs(((in6_addr *)Addr)->s6_words[0]) <= 0x0FFF)) || //Reserved by IETF(0800::/5)
-//			(ntohs(((in6_addr *)Addr)->s6_words[0]) >= 0x1000 && (ntohs(((in6_addr *)Addr)->s6_words[0]) <= 0x1FFF)) || //Reserved by IETF(1000::/4)
-			(ntohs(((in6_addr *)Addr)->s6_words[0]) == 0x2001 && 
-			((ntohs(((in6_addr *)Addr)->s6_words[1U]) >= 0 && ntohs(((in6_addr *)Addr)->s6_words[1U]) <= 0x01FF) || //IETF Protocol Assignments(2001::/23, RFC 2928)
-//			((in6_addr *)Addr)->s6_words[1U] == 0 || //Teredo relay/tunnel addresses(2001::/32, RFC 4380), including in reserved address ranges
-//			((in6_addr *)Addr)->s6_words[1U] == 0 && ((in6_addr *)Addr)->s6_bytes[2U] == 0 && ((in6_addr *)Addr)->s6_bytes[3U] <= 0x07) || //Sub-TLA IDs assigned to IANA addresses(2001::/29, Section 2 in RFC 4773)
-//			(ntohs(((in6_addr *)Addr)->s6_words[1U]) == 0x0001 && ((in6_addr *)Addr)->s6_words[2U] == 0 && ((in6_addr *)Addr)->s6_words[3U] == 0 && ((in6_addr *)Addr)->s6_words[4U] == 0 && ((in6_addr *)Addr)->s6_words[5U] == 0 && ((in6_addr *)Addr)->s6_words[6U] == 0 && ntohs(((in6_addr *)Addr)->s6_words[7U]) == 0x0001) || //Port Control Protocol Anycast(2001:1::1/128, RFC 7723)
-			(ntohs(((in6_addr *)Addr)->s6_words[1U]) == 0x0002 && ((in6_addr *)Addr)->s6_words[2U] == 0) || //Benchmarking(2001:2::/48, RFC 5180)
-//			ntohs(((in6_addr *)Addr)->s6_words[1U]) == 0x0003 || //AMT(2001:3::/32, RFC 7450)
-//			(ntohs(((in6_addr *)Addr)->s6_words[1U]) == 0x0004 && ntohs(((in6_addr *)Addr)->s6_words[1U]) == 0x0112) || //AS112-v6(2001:4:112::/48, RFC 7535)
-//			ntohs(((in6_addr *)Addr)->s6_words[1U]) == 0x0005 || //EID Space for LISP, Managed by RIPE NCC(2001:5::/32, RFC-ietf-lisp-eid-block-13)
-			(ntohs(((in6_addr *)Addr)->s6_words[1U]) >= 0x0010 && ntohs(((in6_addr *)Addr)->s6_words[1U]) <= 0x001F) || //Deprecated, previously ORCHID(2001:10::/28, RFC 4843)
-//			(ntohs(((in6_addr *)Addr)->s6_words[1U]) >= 0x0020 && ntohs(((in6_addr *)Addr)->s6_words[1U]) <= 0x002F) || //ORCHIDv2(2001:20::/28, RFC 7343)
-			(((in6_addr *)Addr)->s6_bytes[2U] == 0x01 && ((in6_addr *)Addr)->s6_bytes[3U] >= 0xF8) || //Sub-TLA IDs assigned to IANA addresses(2001:01F8::/29, Section 2 in RFC 4773)
-			ntohs(((in6_addr *)Addr)->s6_words[1U]) == 0x0DB8)) || //Contrast Address prefix reserved for documentation addresses(2001:DB8::/32, RFC 3849)
-			(IsPrivateUse && ntohs(((in6_addr *)Addr)->s6_words[0]) == 0x2002) || //6to4 relay/tunnel addresses(2002::/16, Section 2 in RFC 3056)
-//			(ntohs(((in6_addr *)Addr)->s6_words[0]) == 0x2620 && ntohs(((in6_addr *)Addr)->s6_words[1U]) == 0x004F && ntohs(((in6_addr *)Addr)->s6_words[2U]) == 0x8000) || //Direct Delegation AS112 Service(2620:4F:8000::/48, RFC 7534)
-			ntohs(((in6_addr *)Addr)->s6_words[0]) == 0x3FFE || //6bone addresses(3FFE::/16, RFC 3701)
-//			(ntohs(((in6_addr *)Addr)->s6_words[0]) >= 0x4000 && (ntohs(((in6_addr *)Addr)->s6_words[0]) <= 0x5FFF)) || //Reserved by IETF(4000::/3)
-			((in6_addr *)Addr)->s6_bytes[0] == 0x5F || //6bone(5F00::/8, RFC 3701)
-//			(ntohs(((in6_addr *)Addr)->s6_words[0]) >= 0x6000 && (ntohs(((in6_addr *)Addr)->s6_words[0]) <= 0x7FFF)) || //Reserved by IETF(6000::/3)
-//			(ntohs(((in6_addr *)Addr)->s6_words[0]) >= 0x8000 && (ntohs(((in6_addr *)Addr)->s6_words[0]) <= 0x9FFF)) || //Reserved by IETF(8000::/3)
-//			(ntohs(((in6_addr *)Addr)->s6_words[0]) >= 0xA000 && (ntohs(((in6_addr *)Addr)->s6_words[0]) <= 0xBFFF)) || //Reserved by IETF(A000::/3)
-//			(ntohs(((in6_addr *)Addr)->s6_words[0]) >= 0xC000 && (ntohs(((in6_addr *)Addr)->s6_words[0]) <= 0xDFFF)) || //Reserved by IETF(C000::/3)
-//			(ntohs(((in6_addr *)Addr)->s6_words[0]) >= 0xE000 && (ntohs(((in6_addr *)Addr)->s6_words[0]) <= 0xEFFF)) || //Reserved by IETF(E000::/4)
-//			(ntohs(((in6_addr *)Addr)->s6_words[0]) >= 0xF000 && (ntohs(((in6_addr *)Addr)->s6_words[0]) <= 0xF7FF)) || //Reserved by IETF(F000::/5)
-//			(ntohs(((in6_addr *)Addr)->s6_words[0]) >= 0xF800 && (ntohs(((in6_addr *)Addr)->s6_words[0]) <= 0xFBFF)) || //Reserved by IETF(F800::/6)
-			(IsPrivateUse && ((in6_addr *)Addr)->s6_bytes[0] >= 0xFC && ((in6_addr *)Addr)->s6_bytes[0] <= 0xFD) || //Unique Local Unicast addresses/ULA(FC00::/7, Section 2.5.7 in RFC 4193)
-//			(ntohs(((in6_addr *)Addr)->s6_words[0]) >= 0xFE00 && (ntohs(((in6_addr *)Addr)->s6_words[0]) <= 0xFE7F)) || //Reserved by IETF(FE00::/9)
-			(((in6_addr *)Addr)->s6_bytes[0] == 0xFE && IsPrivateUse && 
-			((((in6_addr *)Addr)->s6_bytes[1U] >= 0x80 && ((in6_addr *)Addr)->s6_bytes[1U] <= 0xBF) || //Link-Local Unicast Contrast addresses/LUC(FE80::/10, Section 2.5.6 in RFC 4291)
-//			((in6_addr *)Addr)->s6_bytes[1U] <= 0xBF && ((in6_addr *)Addr)->s6_words[4U] == 0 && ntohs(((in6_addr *)Addr)->s6_words[5U]) == 0x5EFE) || //ISATAP Interface Identifiers addresses(Prefix:0:5EFE:0:0:0:0/64, which also in Link-Local Unicast Contrast addresses/LUC, Section 6.1 in RFC 5214)
-			((in6_addr *)Addr)->s6_bytes[1U] >= 0xC0)) || //Site-Local scoped addresses(FEC0::/10, RFC 3879)
-			(IsPrivateUse && ((in6_addr *)Addr)->s6_bytes[0] == 0xFF)) //Multicast addresses(FF00::/8, Section 2.7 in RFC 4291)
+			((in6_addr *)OriginalAddr)->s6_addr[0] == 0 || //Reserved by IETF(::/8)
+/*			(((in6_addr *)OriginalAddr)->s6_addr[0] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[1U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[2U] == 0 && 
+			((in6_addr *)OriginalAddr)->s6_addr[3U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[4U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[5U] == 0 && 
+			((in6_addr *)OriginalAddr)->s6_addr[6U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[7U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[8U] == 0 && 
+			((in6_addr *)OriginalAddr)->s6_addr[9U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[10U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[11U] == 0) || //IPv4-Compatible Contrast addresses(::/96, Section 2.5.5.1 in RFC 4291), including in reserved address ranges
+			(((in6_addr *)OriginalAddr)->s6_addr[0] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[1U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[2U] == 0 && 
+			((in6_addr *)OriginalAddr)->s6_addr[3U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[4U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[5U] == 0 && 
+			((in6_addr *)OriginalAddr)->s6_addr[6U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[7U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[8U] == 0 && 
+			((in6_addr *)OriginalAddr)->s6_addr[9U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[10U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[11U] == 0 && 
+			((in6_addr *)OriginalAddr)->s6_addr[12U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[13U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[14U] == 0 && 
+			((in6_addr *)OriginalAddr)->s6_addr[15U] == 0) || //Unspecified addresses(::, Section 2.5.2 in RFC 4291), including in reserved address ranges
+*/
+			(((in6_addr *)OriginalAddr)->s6_addr[0] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[1U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[2U] == 0 && 
+			((in6_addr *)OriginalAddr)->s6_addr[3U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[4U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[5U] == 0 && 
+			((in6_addr *)OriginalAddr)->s6_addr[6U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[7U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[8U] == 0 && 
+			((in6_addr *)OriginalAddr)->s6_addr[9U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[10U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[11U] == 0 && 
+			((in6_addr *)OriginalAddr)->s6_addr[12U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[13U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[14U] == 0 && 
+			((in6_addr *)OriginalAddr)->s6_addr[15U] == 0x01) || //Loopback addresses(::1, Section 2.5.3 in RFC 4291)
+/*			(((in6_addr *)OriginalAddr)->s6_addr[0] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[1U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[2U] == 0 && 
+			((in6_addr *)OriginalAddr)->s6_addr[3U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[4U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[5U] == 0 && 
+			((in6_addr *)OriginalAddr)->s6_addr[6U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[7U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[8U] == 0 && 
+			((in6_addr *)OriginalAddr)->s6_addr[9U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[10U] == 0xFF && ((in6_addr *)OriginalAddr)->s6_addr[11U] == 0xFF) || //IPv4-mapped addresses(::FFFF:xxxx:xxxx/96, Section 2.5.5 in RFC 4291), including in reserved address ranges
+			(IsPrivateUse && ((in6_addr *)OriginalAddr)->s6_addr[0] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[1U] == 0x64 && ((in6_addr *)OriginalAddr)->s6_addr[2U] == 0xFF && 
+			((in6_addr *)OriginalAddr)->s6_addr[3U] == 0x9B && ((in6_addr *)OriginalAddr)->s6_addr[4U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[5U] == 0 && 
+			((in6_addr *)OriginalAddr)->s6_addr[6U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[7U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[8U] == 0 && 
+			((in6_addr *)OriginalAddr)->s6_addr[9U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[10U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[11U] == 0) || //Well Known Prefix addresses(64:FF9B::xxxx:xxxx/96, Section 2.1 in RFC 4773), including in reserved address ranges
+*/
+			(((in6_addr *)OriginalAddr)->s6_addr[0] == 0x01) || //Reserved by IETF(0100::/8)
+/*			(((in6_addr *)OriginalAddr)->s6_addr[0] == 0x01 && ((in6_addr *)OriginalAddr)->s6_addr[1U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[2U] == 0 && 
+			((in6_addr *)OriginalAddr)->s6_addr[3U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[4U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[5U] == 0 && 
+			((in6_addr *)OriginalAddr)->s6_addr[6U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[7U] == 0) || //Discard Prefix addresses(100::/64, Section 4 RFC 6666), including in reserved address ranges
+*/
+			(((in6_addr *)OriginalAddr)->s6_addr[0] >= 0x02 && ((in6_addr *)OriginalAddr)->s6_addr[0] <= 0x03) || //Reserved by IETF(0200::/7), deprecated as of RFC 4048 and formerly an OSI NSAP-mapped prefix set in RFC 4548
+/*			(((in6_addr *)OriginalAddr)->s6_addr[0] >= 0x04 && ((in6_addr *)OriginalAddr)->s6_addr[0] <= 0x07) || //Reserved by IETF(0400::/6)
+			(((in6_addr *)OriginalAddr)->s6_addr[0] >= 0x08 && ((in6_addr *)OriginalAddr)->s6_addr[0] <= 0x15) || //Reserved by IETF(0800::/5)
+			(((in6_addr *)OriginalAddr)->s6_addr[0] == 0x10) || //Reserved by IETF(1000::/4)
+*/
+			(((in6_addr *)OriginalAddr)->s6_addr[0] == 0x20 && ((in6_addr *)OriginalAddr)->s6_addr[1U] == 0x01 && ((in6_addr *)OriginalAddr)->s6_addr[2U] <= 0x01) || //IETF Protocol Assignments(2001::/23, RFC 2928)
+/*
+			(((in6_addr *)OriginalAddr)->s6_addr[0] == 0x20 && ((in6_addr *)OriginalAddr)->s6_addr[1U] == 0x01 && ((in6_addr *)OriginalAddr)->s6_addr[2U] == 0 && 
+			((in6_addr *)OriginalAddr)->s6_addr[3U] == 0) || //Teredo relay/tunnel addresses(2001::/32, RFC 4380), including in reserved address ranges
+			(((in6_addr *)OriginalAddr)->s6_addr[0] == 0x20 && ((in6_addr *)OriginalAddr)->s6_addr[1U] == 0x01 && ((in6_addr *)OriginalAddr)->s6_addr[2U] == 0 && 
+			((in6_addr *)OriginalAddr)->s6_addr[3U] <= 0x07) || //Sub-TLA IDs assigned to IANA addresses(2001::/29, Section 2 in RFC 4773)
+			(((in6_addr *)OriginalAddr)->s6_addr[0] == 0x20 && ((in6_addr *)OriginalAddr)->s6_addr[1U] == 0x01 && ((in6_addr *)OriginalAddr)->s6_addr[2U] == 0 && 
+			((in6_addr *)OriginalAddr)->s6_addr[3U] == 0x01 && ((in6_addr *)OriginalAddr)->s6_addr[4U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[5U] == 0 && 
+			((in6_addr *)OriginalAddr)->s6_addr[6U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[7U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[8U] == 0 && 
+			((in6_addr *)OriginalAddr)->s6_addr[9U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[10U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[11U] == 0 && 
+			((in6_addr *)OriginalAddr)->s6_addr[12U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[13U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[14U] == 0 && 
+			((in6_addr *)OriginalAddr)->s6_addr[15U] == 0x01) || //Port Control Protocol Anycast(2001:1::1/128, RFC 7723)
+*/
+			(((in6_addr *)OriginalAddr)->s6_addr[0] == 0x20 && ((in6_addr *)OriginalAddr)->s6_addr[1U] == 0x01 && ((in6_addr *)OriginalAddr)->s6_addr[2U] == 0 && 
+			((in6_addr *)OriginalAddr)->s6_addr[3U] == 0x02 && ((in6_addr *)OriginalAddr)->s6_addr[4U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[5U] == 0) || //Benchmarking(2001:2::/48, RFC 5180)
+/*			(((in6_addr *)OriginalAddr)->s6_addr[0] == 0x20 && ((in6_addr *)OriginalAddr)->s6_addr[1U] == 0x01 && ((in6_addr *)OriginalAddr)->s6_addr[2U] == 0 && 
+			((in6_addr *)OriginalAddr)->s6_addr[3U] == 0x03) || //AMT(2001:3::/32, RFC 7450)
+			(((in6_addr *)OriginalAddr)->s6_addr[0] == 0x20 && ((in6_addr *)OriginalAddr)->s6_addr[1U] == 0x01 && ((in6_addr *)OriginalAddr)->s6_addr[2U] == 0 && 
+			((in6_addr *)OriginalAddr)->s6_addr[3U] == 0x04 && ((in6_addr *)OriginalAddr)->s6_addr[4U] == 0x01 && ((in6_addr *)OriginalAddr)->s6_addr[5U] == 0x12) || //AS112-v6(2001:4:112::/48, RFC 7535)
+			(((in6_addr *)OriginalAddr)->s6_addr[0] == 0x20 && ((in6_addr *)OriginalAddr)->s6_addr[1U] == 0x01 && ((in6_addr *)OriginalAddr)->s6_addr[2U] == 0 && 
+			((in6_addr *)OriginalAddr)->s6_addr[3U] == 0x05) || //EID Space for LISP, Managed by RIPE NCC(2001:5::/32, RFC-ietf-lisp-eid-block-13)
+*/
+			(((in6_addr *)OriginalAddr)->s6_addr[0] == 0x20 && ((in6_addr *)OriginalAddr)->s6_addr[1U] == 0x01 && ((in6_addr *)OriginalAddr)->s6_addr[2U] == 0 && 
+			((in6_addr *)OriginalAddr)->s6_addr[3U] >= 0x10 && ((in6_addr *)OriginalAddr)->s6_addr[3U] <= 0x1F) || //Deprecated, previously ORCHID(2001:10::/28, RFC 4843)
+/*			(((in6_addr *)OriginalAddr)->s6_addr[0] == 0x20 && ((in6_addr *)OriginalAddr)->s6_addr[1U] == 0x01 && ((in6_addr *)OriginalAddr)->s6_addr[2U] == 0 && 
+			((in6_addr *)OriginalAddr)->s6_addr[3U] >= 0x20 && ((in6_addr *)OriginalAddr)->s6_addr[3U] <= 0x2F) || //ORCHIDv2(2001:20::/28, RFC 7343)
+*/
+			(((in6_addr *)OriginalAddr)->s6_addr[0] == 0x20 && ((in6_addr *)OriginalAddr)->s6_addr[1U] == 0x01 && ((in6_addr *)OriginalAddr)->s6_addr[2U] == 0x01 && 
+			((in6_addr *)OriginalAddr)->s6_addr[3U] >= 0xF8) || //Sub-TLA IDs assigned to IANA addresses(2001:01F8::/29, Section 2 in RFC 4773)
+			(((in6_addr *)OriginalAddr)->s6_addr[0] == 0x20 && ((in6_addr *)OriginalAddr)->s6_addr[1U] == 0x01 && ((in6_addr *)OriginalAddr)->s6_addr[2U] == 0x0D && 
+			((in6_addr *)OriginalAddr)->s6_addr[3U] == 0xB8) || //Contrast Address prefix reserved for documentation addresses(2001:DB8::/32, RFC 3849)
+			(IsPrivateUse && ((in6_addr *)OriginalAddr)->s6_addr[0] == 0x20 && ((in6_addr *)OriginalAddr)->s6_addr[1U] == 0x02) || //6to4 relay/tunnel addresses(2002::/16, Section 2 in RFC 3056)
+/*			(((in6_addr *)OriginalAddr)->s6_addr[0] == 0x26 && ((in6_addr *)OriginalAddr)->s6_addr[1U] == 0x20 && ((in6_addr *)OriginalAddr)->s6_addr[2U] == 0 && 
+			((in6_addr *)OriginalAddr)->s6_addr[3U] == 0x4F && ((in6_addr *)OriginalAddr)->s6_addr[4U] == 0x80 && ((in6_addr *)OriginalAddr)->s6_addr[5U] == 0) || //Direct Delegation AS112 Service(2620:4F:8000::/48, RFC 7534)
+*/
+			(((in6_addr *)OriginalAddr)->s6_addr[0] == 0x3F && ((in6_addr *)OriginalAddr)->s6_addr[1U] == 0xFE) || //6bone(3FFE::/16, RFC 3701)
+/*			(((in6_addr *)OriginalAddr)->s6_addr[0] >= 0x40 && ((in6_addr *)OriginalAddr)->s6_addr[0] <= 0x5F) || //Reserved by IETF(4000::/3)
+*/
+			(((in6_addr *)OriginalAddr)->s6_addr[0] == 0x5F) || //6bone(5F00::/8, RFC 3701)
+/*			(((in6_addr *)OriginalAddr)->s6_addr[0] >= 0x60 && ((in6_addr *)OriginalAddr)->s6_addr[0] <= 0x7F) || //Reserved by IETF(6000::/3)
+			(((in6_addr *)OriginalAddr)->s6_addr[0] >= 0x80 && ((in6_addr *)OriginalAddr)->s6_addr[0] <= 0x9F) || //Reserved by IETF(8000::/3)
+			(((in6_addr *)OriginalAddr)->s6_addr[0] >= 0xA0 && ((in6_addr *)OriginalAddr)->s6_addr[0] <= 0xBF) || //Reserved by IETF(A000::/3)
+			(((in6_addr *)OriginalAddr)->s6_addr[0] >= 0xC0 && ((in6_addr *)OriginalAddr)->s6_addr[0] <= 0xDF) || //Reserved by IETF(C000::/3)
+			(((in6_addr *)OriginalAddr)->s6_addr[0] >= 0xE0 && ((in6_addr *)OriginalAddr)->s6_addr[0] <= 0xEF) || //Reserved by IETF(E000::/4)
+			(((in6_addr *)OriginalAddr)->s6_addr[0] >= 0xF0 && ((in6_addr *)OriginalAddr)->s6_addr[0] <= 0xF7) || //Reserved by IETF(F000::/5)
+			(((in6_addr *)OriginalAddr)->s6_addr[0] >= 0xF8 && ((in6_addr *)OriginalAddr)->s6_addr[0] <= 0xFB) || //Reserved by IETF(F800::/6)
+*/
+			(((in6_addr *)OriginalAddr)->s6_addr[0] >= 0xFC && ((in6_addr *)OriginalAddr)->s6_addr[0] <= 0xFD) || //Unique Local Unicast addresses/ULA(FC00::/7, Section 2.5.7 in RFC 4193)
+/*			(((in6_addr *)OriginalAddr)->s6_addr[0] == 0xFE && ((in6_addr *)OriginalAddr)->s6_addr[1U] <= 0x7F) || //Reserved by IETF(FE00::/9)
+*/			
+			(IsPrivateUse && ((in6_addr *)OriginalAddr)->s6_addr[0] == 0xFE && ((in6_addr *)OriginalAddr)->s6_addr[1U] >= 0x80 && ((in6_addr *)OriginalAddr)->s6_addr[1U] <= 0xBF) || //Link-Local Unicast Contrast addresses/LUC(FE80::/10, Section 2.5.6 in RFC 4291)
+/*			(IsPrivateUse && ((in6_addr *)OriginalAddr)->s6_addr[0] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[1U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[2U] == 0x5E && 
+			((in6_addr *)OriginalAddr)->s6_addr[3U] == 0xFE && ((in6_addr *)OriginalAddr)->s6_addr[4U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[5U] == 0 && 
+			((in6_addr *)OriginalAddr)->s6_addr[6U] == 0 && ((in6_addr *)OriginalAddr)->s6_addr[7U] == 0) || //ISATAP Interface Identifiers addresses(0:5EFE:0:0:0:0/64, which also in Link-Local Unicast Contrast addresses/LUC, Section 6.1 in RFC 5214)
+*/
+			(IsPrivateUse && ((in6_addr *)OriginalAddr)->s6_addr[0] == 0xFE && ((in6_addr *)OriginalAddr)->s6_addr[1U] >= 0xC0) || //Site-Local scoped addresses(FEC0::/10, RFC 3879)
+			(IsPrivateUse && ((in6_addr *)OriginalAddr)->s6_addr[0] == 0xFF)) //Multicast addresses(FF00::/8, Section 2.7 in RFC 4291)
 				return true;
 
 	//Result Blacklist check
-		if (Domain != nullptr)
+		if (DomainBuffer != nullptr)
 		{
 		//Domain Case Conversion
-			std::string InnerDomain((const char *)Domain);
-			CaseConvert(InnerDomain, false);
+			std::string DomainString((const char *)DomainBuffer);
+			CaseConvert(DomainString, false);
 
 		//Main check
 			std::lock_guard<std::mutex> IPFilterFileMutex(IPFilterFileLock);
@@ -395,15 +484,15 @@ bool CheckSpecialAddress(
 			{
 				for (const auto &ResultBlacklistTableIter:IPFilterFileSetIter.ResultBlacklist)
 				{
-					if (ResultBlacklistTableIter.Addresses.front().Begin.ss_family == AF_INET6 && 
-						(ResultBlacklistTableIter.PatternString.empty() || std::regex_match(InnerDomain, ResultBlacklistTableIter.PatternRegex)))
+					if (!ResultBlacklistTableIter.Addresses.empty() && ResultBlacklistTableIter.Addresses.front().Begin.ss_family == AF_INET6 && 
+						(ResultBlacklistTableIter.PatternString.empty() || std::regex_match(DomainString, ResultBlacklistTableIter.PatternRegex)))
 					{
 						for (const auto &AddressRangeTableIter:ResultBlacklistTableIter.Addresses)
 						{
 							if ((AddressRangeTableIter.End.ss_family == AF_INET6 && 
-								AddressesComparing(AF_INET6, Addr, &((PSOCKADDR_IN6)&AddressRangeTableIter.Begin)->sin6_addr) >= ADDRESS_COMPARE_EQUAL && 
-								AddressesComparing(AF_INET6, Addr, &((PSOCKADDR_IN6)&AddressRangeTableIter.End)->sin6_addr) <= ADDRESS_COMPARE_EQUAL) || 
-								memcmp(Addr, &((PSOCKADDR_IN6)&AddressRangeTableIter.Begin)->sin6_addr, sizeof(in6_addr)) == 0)
+								AddressesComparing(AF_INET6, OriginalAddr, &((PSOCKADDR_IN6)&AddressRangeTableIter.Begin)->sin6_addr) >= ADDRESS_COMPARE_EQUAL && 
+								AddressesComparing(AF_INET6, OriginalAddr, &((PSOCKADDR_IN6)&AddressRangeTableIter.End)->sin6_addr) <= ADDRESS_COMPARE_EQUAL) || 
+								memcmp(OriginalAddr, &((PSOCKADDR_IN6)&AddressRangeTableIter.Begin)->sin6_addr, sizeof(in6_addr)) == 0)
 									return true;
 						}
 					}
@@ -417,23 +506,57 @@ bool CheckSpecialAddress(
 		{
 			for (const auto &AddressHostsTableIter:HostsFileSetIter.AddressHostsList)
 			{
-				if (AddressHostsTableIter.Address_Target.front().ss_family == AF_INET6)
+				if (!AddressHostsTableIter.Address_Target.empty() && AddressHostsTableIter.Address_Target.front().first.ss_family == AF_INET6)
 				{
 					for (const auto &AddressRangeTableIter:AddressHostsTableIter.Address_Source)
 					{
+					//Check address.
 						if ((AddressRangeTableIter.Begin.ss_family == AF_INET6 && AddressRangeTableIter.End.ss_family == AF_INET6 && 
-							AddressesComparing(AF_INET6, Addr, &((PSOCKADDR_IN6)&AddressRangeTableIter.Begin)->sin6_addr) >= ADDRESS_COMPARE_EQUAL && 
-							AddressesComparing(AF_INET6, Addr, &((PSOCKADDR_IN6)&AddressRangeTableIter.End)->sin6_addr) <= ADDRESS_COMPARE_EQUAL) || 
-							memcmp(Addr, &((PSOCKADDR_IN6)&AddressRangeTableIter.Begin)->sin6_addr, sizeof(in6_addr)) == 0)
+							AddressesComparing(AF_INET6, OriginalAddr, &((PSOCKADDR_IN6)&AddressRangeTableIter.Begin)->sin6_addr) >= ADDRESS_COMPARE_EQUAL && 
+							AddressesComparing(AF_INET6, OriginalAddr, &((PSOCKADDR_IN6)&AddressRangeTableIter.End)->sin6_addr) <= ADDRESS_COMPARE_EQUAL) || 
+							memcmp(OriginalAddr, &((PSOCKADDR_IN6)&AddressRangeTableIter.Begin)->sin6_addr, sizeof(in6_addr)) == 0)
 						{
 							if (AddressHostsTableIter.Address_Target.size() > 1U)
 							{
 							//Get a ramdom one.
 								std::uniform_int_distribution<size_t> RamdomDistribution(0, AddressHostsTableIter.Address_Target.size() - 1U);
-								*(in6_addr *)Addr = ((PSOCKADDR_IN6)&AddressHostsTableIter.Address_Target.at(RamdomDistribution(*GlobalRunningStatus.RamdomEngine)))->sin6_addr;
+								
+							//Rewrite address.
+								if (AddressHostsTableIter.Address_Target.front().second > 0)
+								{
+									if (AddressHostsTableIter.Address_Target.front().second < sizeof(in6_addr) * BYTES_TO_BITS / 2U)
+									{
+										*((uint64_t *)OriginalAddr) = hton64(ntoh64(*((uint64_t *)OriginalAddr)) & (UINT64_MAX >> AddressHostsTableIter.Address_Target.front().second));
+										*((uint64_t *)OriginalAddr) = hton64(ntoh64(*((uint64_t *)OriginalAddr)) | ntoh64(*((uint64_t *)&((PSOCKADDR_IN6)&AddressHostsTableIter.Address_Target.at(RamdomDistribution(*GlobalRunningStatus.RamdomEngine)).first)->sin6_addr)));
+									}
+									else {
+										*((uint64_t *)OriginalAddr) = *((uint64_t *)&((PSOCKADDR_IN6)&AddressHostsTableIter.Address_Target.at(RamdomDistribution(*GlobalRunningStatus.RamdomEngine)).first)->sin6_addr);
+										*((uint64_t *)((uint8_t *)OriginalAddr + sizeof(in6_addr) / 2U)) = hton64(ntoh64(*((uint64_t *)((uint8_t *)OriginalAddr + sizeof(in6_addr) / 2U))) & (UINT64_MAX >> (AddressHostsTableIter.Address_Target.front().second - sizeof(in6_addr) * BYTES_TO_BITS / 2U)));
+										*((uint64_t *)((uint8_t *)OriginalAddr + sizeof(in6_addr) / 2U)) = hton64(ntoh64(*((uint64_t *)((uint8_t *)OriginalAddr + sizeof(in6_addr) / 2U))) | ntoh64(*((uint64_t *)&((PSOCKADDR_IN6)&AddressHostsTableIter.Address_Target.at(RamdomDistribution(*GlobalRunningStatus.RamdomEngine)).first)->sin6_addr)));
+									}
+								}
+								else {
+									*(in6_addr *)OriginalAddr = ((PSOCKADDR_IN6)&AddressHostsTableIter.Address_Target.at(RamdomDistribution(*GlobalRunningStatus.RamdomEngine)).first)->sin6_addr;
+								}
 							}
 							else {
-								*(in6_addr *)Addr = ((PSOCKADDR_IN6)&AddressHostsTableIter.Address_Target.front())->sin6_addr;
+							//Rewrite address.
+								if (AddressHostsTableIter.Address_Target.front().second > 0)
+								{
+									if (AddressHostsTableIter.Address_Target.front().second < sizeof(in6_addr) * BYTES_TO_BITS / 2U)
+									{
+										*((uint64_t *)OriginalAddr) = hton64(ntoh64(*((uint64_t *)OriginalAddr)) & (UINT64_MAX >> AddressHostsTableIter.Address_Target.front().second));
+										*((uint64_t *)OriginalAddr) = hton64(ntoh64(*((uint64_t *)OriginalAddr)) | ntoh64(*((uint64_t *)&((PSOCKADDR_IN6)&AddressHostsTableIter.Address_Target.front().first)->sin6_addr)));
+									}
+									else {
+										*((uint64_t *)OriginalAddr) = *((uint64_t *)&((PSOCKADDR_IN6)&AddressHostsTableIter.Address_Target.front().first)->sin6_addr);
+										*((uint64_t *)((uint8_t *)OriginalAddr + sizeof(in6_addr) / 2U)) = hton64(ntoh64(*((uint64_t *)((uint8_t *)OriginalAddr + sizeof(in6_addr) / 2U))) & (UINT64_MAX >> (AddressHostsTableIter.Address_Target.front().second - sizeof(in6_addr) * BYTES_TO_BITS / 2U)));
+										*((uint64_t *)((uint8_t *)OriginalAddr + sizeof(in6_addr) / 2U)) = hton64(ntoh64(*((uint64_t *)((uint8_t *)OriginalAddr + sizeof(in6_addr) / 2U))) | ntoh64(*((uint64_t *)&((PSOCKADDR_IN6)&AddressHostsTableIter.Address_Target.front().first)->sin6_addr)));
+									}
+								}
+								else {
+									*(in6_addr *)OriginalAddr = ((PSOCKADDR_IN6)&AddressHostsTableIter.Address_Target.front().first)->sin6_addr;
+								}
 							}
 
 							goto StopLoop;
@@ -447,121 +570,121 @@ bool CheckSpecialAddress(
 	{
 		if (
 		//DNS Poisoning addresses from CERNET2, visit https://code.google.com/p/goagent/issues/detail?id=17571.
-			ntohl(((in_addr *)Addr)->s_addr) == 0x01020304 || //1.2.3.4
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0x01020304 || //1.2.3.4
 		//Traditional DNS Poisoning addresses, visit https://zh.wikipedia.org/wiki/%E5%9F%9F%E5%90%8D%E6%9C%8D%E5%8A%A1%E5%99%A8%E7%BC%93%E5%AD%98%E6%B1%A1%E6%9F%93#.E8.99.9A.E5.81.87IP.E5.9C.B0.E5.9D.80.
-			ntohl(((in_addr *)Addr)->s_addr) == 0x042442B2 || //4.36.66.178
-			ntohl(((in_addr *)Addr)->s_addr) == 0x0807C62D || //8.7.198.45
-			ntohl(((in_addr *)Addr)->s_addr) == 0x253D369E || //37.61.54.158
-			ntohl(((in_addr *)Addr)->s_addr) == 0x2E52AE44 || //46.82.174.68
-			ntohl(((in_addr *)Addr)->s_addr) == 0x3B1803AD || //59.24.3.173
-			ntohl(((in_addr *)Addr)->s_addr) == 0x402158A1 || //64.33.88.161
-			ntohl(((in_addr *)Addr)->s_addr) == 0x4021632F || //64.33.99.47
-			ntohl(((in_addr *)Addr)->s_addr) == 0x4042A3FB || //64.66.163.251
-			ntohl(((in_addr *)Addr)->s_addr) == 0x4168CAFC || //65.104.202.252
-			ntohl(((in_addr *)Addr)->s_addr) == 0x41A0DB71 || //65.160.219.113
-			ntohl(((in_addr *)Addr)->s_addr) == 0x422DFCED || //66.45.252.237
-			ntohl(((in_addr *)Addr)->s_addr) == 0x480ECD63 || //72.14.205.99
-			ntohl(((in_addr *)Addr)->s_addr) == 0x480ECD68 || //72.14.205.104
-			ntohl(((in_addr *)Addr)->s_addr) == 0x4E10310F || //78.16.49.15
-			ntohl(((in_addr *)Addr)->s_addr) == 0x5D2E0859 || //93.46.8.89
-			ntohl(((in_addr *)Addr)->s_addr) == 0x80797E8B || //128.121.126.139
-			ntohl(((in_addr *)Addr)->s_addr) == 0x9F1803AD || //159.24.3.173
-			ntohl(((in_addr *)Addr)->s_addr) == 0x9F6A794B || //159.106.121.75
-			ntohl(((in_addr *)Addr)->s_addr) == 0xA9840D67 || //169.132.13.103
-			ntohl(((in_addr *)Addr)->s_addr) == 0xC043C606 || //192.67.198.6
-			ntohl(((in_addr *)Addr)->s_addr) == 0xCA6A0102 || //202.106.1.2
-			ntohl(((in_addr *)Addr)->s_addr) == 0xCAB50755 || //202.181.7.85
-			ntohl(((in_addr *)Addr)->s_addr) == 0xCB620741 || //203.98.7.65
-			ntohl(((in_addr *)Addr)->s_addr) == 0xCBA1E6AB || //203.161.230.171
-			ntohl(((in_addr *)Addr)->s_addr) == 0xCF0C5862 || //207.12.88.98
-			ntohl(((in_addr *)Addr)->s_addr) == 0xD0381F2B || //208.56.31.43
-			ntohl(((in_addr *)Addr)->s_addr) == 0xD1244921 || //209.36.73.33
-			ntohl(((in_addr *)Addr)->s_addr) == 0xD1913632 || //209.145.54.50
-			ntohl(((in_addr *)Addr)->s_addr) == 0xD1DC1EAE || //209.220.30.174
-			ntohl(((in_addr *)Addr)->s_addr) == 0xD35E4293 || //211.94.66.147
-			ntohl(((in_addr *)Addr)->s_addr) == 0xD5A9FB23 || //213.169.251.35
-			ntohl(((in_addr *)Addr)->s_addr) == 0xD8DDBCD6 || //216.221.188.182
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0x042442B2 || //4.36.66.178
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0x0807C62D || //8.7.198.45
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0x253D369E || //37.61.54.158
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0x2E52AE44 || //46.82.174.68
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0x3B1803AD || //59.24.3.173
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0x402158A1 || //64.33.88.161
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0x4021632F || //64.33.99.47
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0x4042A3FB || //64.66.163.251
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0x4168CAFC || //65.104.202.252
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0x41A0DB71 || //65.160.219.113
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0x422DFCED || //66.45.252.237
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0x480ECD63 || //72.14.205.99
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0x480ECD68 || //72.14.205.104
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0x4E10310F || //78.16.49.15
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0x5D2E0859 || //93.46.8.89
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0x80797E8B || //128.121.126.139
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0x9F1803AD || //159.24.3.173
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0x9F6A794B || //159.106.121.75
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0xA9840D67 || //169.132.13.103
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0xC043C606 || //192.67.198.6
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0xCA6A0102 || //202.106.1.2
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0xCAB50755 || //202.181.7.85
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0xCB620741 || //203.98.7.65
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0xCBA1E6AB || //203.161.230.171
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0xCF0C5862 || //207.12.88.98
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0xD0381F2B || //208.56.31.43
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0xD1244921 || //209.36.73.33
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0xD1913632 || //209.145.54.50
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0xD1DC1EAE || //209.220.30.174
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0xD35E4293 || //211.94.66.147
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0xD5A9FB23 || //213.169.251.35
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0xD8DDBCD6 || //216.221.188.182
 		//New DNS Poisoning addresses which had been added in May 2011, visit http://forums.internetfreedom.org/index.php?topic=7953.0.
-			ntohl(((in_addr *)Addr)->s_addr) == 0x1759053C || //23.89.5.60
-			ntohl(((in_addr *)Addr)->s_addr) == 0x31027B38 || //49.2.123.56
-			ntohl(((in_addr *)Addr)->s_addr) == 0x364C8701 || //54.76.135.1
-			ntohl(((in_addr *)Addr)->s_addr) == 0x4D04075C || //77.4.7.92
-			ntohl(((in_addr *)Addr)->s_addr) == 0x76050460 || //118.5.4.96
-			ntohl(((in_addr *)Addr)->s_addr) == 0xBC050460 || //188.5.4.96
-			ntohl(((in_addr *)Addr)->s_addr) == 0xBDA31105 || //189.163.17.5
-			ntohl(((in_addr *)Addr)->s_addr) == 0xC504040C || //197.4.4.12
-			ntohl(((in_addr *)Addr)->s_addr) == 0xD8EAB30D || //216.234.179.13
-//			ntohl(((in_addr *)Addr)->s_addr) == 0xF3B9BB27 || //243.185.187.39, including in reserved address ranges
-//			ntohl(((in_addr *)Addr)->s_addr) == 0xF9812E30 || //249.129.46.48, including in reserved address ranges
-//			ntohl(((in_addr *)Addr)->s_addr) == 0xFD9D0EA5 || //253.157.14.165, including in reserved address ranges
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0x1759053C || //23.89.5.60
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0x31027B38 || //49.2.123.56
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0x364C8701 || //54.76.135.1
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0x4D04075C || //77.4.7.92
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0x76050460 || //118.5.4.96
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0xBC050460 || //188.5.4.96
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0xBDA31105 || //189.163.17.5
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0xC504040C || //197.4.4.12
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0xD8EAB30D || //216.234.179.13
+//			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0xF3B9BB27 || //243.185.187.39, including in reserved address ranges
+//			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0xF9812E30 || //249.129.46.48, including in reserved address ranges
+//			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0xFD9D0EA5 || //253.157.14.165, including in reserved address ranges
 		//China Network Anomaly in 2014-01-21, visit https ://zh.wikipedia.org/wiki/2014%E5%B9%B4%E4%B8%AD%E5%9B%BD%E7%BD%91%E7%BB%9C%E5%BC%82%E5%B8%B8%E4%BA%8B%E4%BB%B6
-			ntohl(((in_addr *)Addr)->s_addr) == 0x413102B2 || //65.49.2.178
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0x413102B2 || //65.49.2.178
 		//New addresses in IPv6 which has been added in September 2014, visit https://code.google.com/p/goagent/issues/detail?id=17571.
-			ntohl(((in_addr *)Addr)->s_addr) == 0x01010101 || //1.1.1.1
-			ntohl(((in_addr *)Addr)->s_addr) == 0x0A0A0A0A || //10.10.10.10
-			ntohl(((in_addr *)Addr)->s_addr) == 0x14141414 || //20.20.20.20
-//			ntohl(((in_addr *)Addr)->s_addr) == 0xFFFFFFFF || //255.255.255.255, including in reserved address ranges
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0x01010101 || //1.1.1.1
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0x0A0A0A0A || //10.10.10.10
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0x14141414 || //20.20.20.20
+//			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0xFFFFFFFF || //255.255.255.255, including in reserved address ranges
 		//New DNS Poisoning addresses which had been added in December 2014, visit https://www.v2ex.com/t/156926.
-//			((in_addr *)Addr)->s_addr == 0 || //0.0.0.0, including in reserved address ranges
-			ntohl(((in_addr *)Addr)->s_addr) == 0x02010102 || //2.1.1.2
-			ntohl(((in_addr *)Addr)->s_addr) == 0x04C15000 || //4.193.80.0
-			ntohl(((in_addr *)Addr)->s_addr) == 0x08695400 || //8.105.84.0
-			ntohl(((in_addr *)Addr)->s_addr) == 0x0C578500 || //12.87.133.0
-			ntohl(((in_addr *)Addr)->s_addr) == 0x103F9B00 || //16.63.155.0
-			ntohl(((in_addr *)Addr)->s_addr) == 0x148B3800 || //20.139.56.0
-			ntohl(((in_addr *)Addr)->s_addr) == 0x1833B800 || //24.51.184.0
-			ntohl(((in_addr *)Addr)->s_addr) == 0x1C797E8B || //28.121.126.139
-			ntohl(((in_addr *)Addr)->s_addr) == 0x1C0DD800 || //28.13.216.0
-			ntohl(((in_addr *)Addr)->s_addr) == 0x2E147EFC || //46.20.126.252
-			ntohl(((in_addr *)Addr)->s_addr) == 0x2E2618D1 || //46.38.24.209
-			ntohl(((in_addr *)Addr)->s_addr) == 0x3D361C06 || //61.54.28.6
-			ntohl(((in_addr *)Addr)->s_addr) == 0x42CE0BC2 || //66.206.11.194
-			ntohl(((in_addr *)Addr)->s_addr) == 0x4A75398A || //74.117.57.138
-			ntohl(((in_addr *)Addr)->s_addr) == 0x591F376A || //89.31.55.106
-			ntohl(((in_addr *)Addr)->s_addr) == 0x710BC2BE || //113.11.194.190
-			ntohl(((in_addr *)Addr)->s_addr) == 0x76053106 || //118.5.49.6
-			ntohl(((in_addr *)Addr)->s_addr) == 0x7ADA65BE || //122.218.101.190
-			ntohl(((in_addr *)Addr)->s_addr) == 0x7B3231AB || //123.50.49.171
-			ntohl(((in_addr *)Addr)->s_addr) == 0x7B7EF9EE || //123.126.249.238
-			ntohl(((in_addr *)Addr)->s_addr) == 0x7DE69430 || //125.230.148.48
-//			ntohl(((in_addr *)Addr)->s_addr) == 0x7F000002 || //127.0.0.2, including in reserved address ranges
-			ntohl(((in_addr *)Addr)->s_addr) == 0xADC9D806 || //173.201.216.6
-			ntohl(((in_addr *)Addr)->s_addr) == 0xCBC73951 || //203.199.57.81
-			ntohl(((in_addr *)Addr)->s_addr) == 0xD06D8A37 || //208.109.138.55
-			ntohl(((in_addr *)Addr)->s_addr) == 0xD3058512 || //211.5.133.18
-			ntohl(((in_addr *)Addr)->s_addr) == 0xD308451B || //211.8.69.27
-			ntohl(((in_addr *)Addr)->s_addr) == 0xD5BA2105 || //213.186.33.5
-			ntohl(((in_addr *)Addr)->s_addr) == 0xD88BD590 || //216.139.213.144
-			ntohl(((in_addr *)Addr)->s_addr) == 0xDD08451B || //221.8.69.27
-//			ntohl(((in_addr *)Addr)->s_addr) == 0xF3B9BB03 || //243.185.187.3, including in reserved address ranges
-//			ntohl(((in_addr *)Addr)->s_addr) == 0xF3B9BB1E || //243.185.187.30, including in reserved address ranges
+//			Addr.s_addr == 0 || //0.0.0.0, including in reserved address ranges
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0x02010102 || //2.1.1.2
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0x04C15000 || //4.193.80.0
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0x08695400 || //8.105.84.0
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0x0C578500 || //12.87.133.0
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0x103F9B00 || //16.63.155.0
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0x148B3800 || //20.139.56.0
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0x1833B800 || //24.51.184.0
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0x1C797E8B || //28.121.126.139
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0x1C0DD800 || //28.13.216.0
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0x2E147EFC || //46.20.126.252
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0x2E2618D1 || //46.38.24.209
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0x3D361C06 || //61.54.28.6
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0x42CE0BC2 || //66.206.11.194
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0x4A75398A || //74.117.57.138
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0x591F376A || //89.31.55.106
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0x710BC2BE || //113.11.194.190
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0x76053106 || //118.5.49.6
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0x7ADA65BE || //122.218.101.190
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0x7B3231AB || //123.50.49.171
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0x7B7EF9EE || //123.126.249.238
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0x7DE69430 || //125.230.148.48
+//			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0x7F000002 || //127.0.0.2, including in reserved address ranges
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0xADC9D806 || //173.201.216.6
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0xCBC73951 || //203.199.57.81
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0xD06D8A37 || //208.109.138.55
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0xD3058512 || //211.5.133.18
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0xD308451B || //211.8.69.27
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0xD5BA2105 || //213.186.33.5
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0xD88BD590 || //216.139.213.144
+			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0xDD08451B || //221.8.69.27
+//			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0xF3B9BB03 || //243.185.187.3, including in reserved address ranges
+//			ntohl(((in_addr *)OriginalAddr)->s_addr) == 0xF3B9BB1E || //243.185.187.30, including in reserved address ranges
 		//Special-use or reserved addresses, visit https://en.wikipedia.org/wiki/IPv4#Special-use_addresses and https://en.wikipedia.org/wiki/Reserved_IP_addresses#Reserved_IPv4_addresses.
 		//Also https://www.iana.org/assignments/ipv4-address-space/ipv4-address-space.xhtml
-			((in_addr *)Addr)->s_net == 0 || //Current network whick only valid as source addresses(0.0.0.0/8, Section 3.2.1.3 in RFC 1122)
-			(IsPrivateUse && ((in_addr *)Addr)->s_net == 0x0A) || //Private class A addresses(10.0.0.0/8, Section 3 in RFC 1918)
-			(((in_addr *)Addr)->s_net == 0x7F && //Loopback address(127.0.0.0/8, Section 3.2.1.3 in RFC 1122)
-			!(((in_addr *)Addr)->s_host == 0 && ((in_addr *)Addr)->s_lh == 0 && ((in_addr *)Addr)->s_impno == 0x01)) || //The first of Loopback block address(127.0.0.1)
-			( /* IsPrivateUse && */ ((in_addr *)Addr)->s_net == 0x64 && ((in_addr *)Addr)->s_host > 0x40 && ((in_addr *)Addr)->s_host < 0x7F) || //Carrier-grade NAT addresses(100.64.0.0/10, Section 7 in RFC 6598)
-			(IsPrivateUse && ((in_addr *)Addr)->s_net == 0xA9 && ((in_addr *)Addr)->s_host >= 0xFE) || //Link-local addresses(169.254.0.0/16, Section 1.5 in RFC 3927)
-			(IsPrivateUse && ((in_addr *)Addr)->s_net == 0xAC && ((in_addr *)Addr)->s_host >= 0x10 && ((in_addr *)Addr)->s_host <= 0x1F) || //Private class B addresses(172.16.0.0/12, Section 3 in RFC 1918)
-			(((in_addr *)Addr)->s_net == 0xC0 && ((in_addr *)Addr)->s_host == 0 && ((in_addr *)Addr)->s_lh == 0 && ((in_addr *)Addr)->s_impno >= 0 && ((in_addr *)Addr)->s_impno < 0x08) || //DS-Lite transition mechanism addresses(192.0.0.0/29, Section 3 in RFC 6333)
-			(((in_addr *)Addr)->s_net == 0xC0 && (((in_addr *)Addr)->s_host == 0 && (((in_addr *)Addr)->s_lh == 0 || //Reserved for IETF protocol assignments addresses(192.0.0.0/24, Section 3 in RFC 5735)
-			((in_addr *)Addr)->s_lh == 0x02))) || //TEST-NET-1 addresses(192.0.2.0/24, Section 3 in RFC 5735)
-			(IsPrivateUse && ((in_addr *)Addr)->s_host == 0x58 && ((in_addr *)Addr)->s_lh == 0x63) || //6to4 relay/tunnel addresses(192.88.99.0/24, Section 2.3 in RFC 3068)
-			(IsPrivateUse && ((in_addr *)Addr)->s_net == 0xC0 && ((in_addr *)Addr)->s_host == 0xA8) || //Private class C addresses(192.168.0.0/16, Section 3 in RFC 1918)
-			(((in_addr *)Addr)->s_net == 0xC6 && (((in_addr *)Addr)->s_host == 0x12 || //Benchmarking Methodology for Network Interconnect Devices addresses(198.18.0.0/15, Section 11.4.1 in RFC 2544)
-			(((in_addr *)Addr)->s_host == 0x33 && ((in_addr *)Addr)->s_lh == 0x64))) || //TEST-NET-2 addresses(198.51.100.0/24, Section 3 in RFC 5737)
-			(((in_addr *)Addr)->s_net == 0xCB && ((in_addr *)Addr)->s_host == 0 && ((in_addr *)Addr)->s_lh == 0x71) || //TEST-NET-3 addresses(203.0.113.0/24, Section 3 in RFC 5737)
-			(IsPrivateUse && ((in_addr *)Addr)->s_net == 0xE0) || //Multicast addresses(224.0.0.0/4, Section 2 in RFC 3171)
-			((in_addr *)Addr)->s_net >= 0xF0) //Reserved for future use address(240.0.0.0/4, Section 4 in RFC 1112) and Broadcast addresses(255.255.255.255/32, Section 7 in RFC 919/RFC 922)
+			*((uint8_t *)&((in_addr *)OriginalAddr)->s_addr) == 0 || //Current network whick only valid as source addresses(0.0.0.0/8, Section 3.2.1.3 in RFC 1122)
+			(IsPrivateUse && *((uint8_t *)&((in_addr *)OriginalAddr)->s_addr) == 0x0A) || //Private class A addresses(10.0.0.0/8, Section 3 in RFC 1918)
+			(*((uint8_t *)&((in_addr *)OriginalAddr)->s_addr) == 0x7F && //Loopback address(127.0.0.0/8, Section 3.2.1.3 in RFC 1122)
+			!(*((uint8_t *)&((in_addr *)OriginalAddr)->s_addr + sizeof(uint8_t)) == 0 && *((uint8_t *)&((in_addr *)OriginalAddr)->s_addr + sizeof(uint8_t) * 2U) == 0 && *((uint8_t *)&((in_addr *)OriginalAddr)->s_addr + sizeof(uint8_t) * 3U) == 0x01)) || //The first of Loopback block address(127.0.0.1)
+			( /* IsPrivateUse && */ *((uint8_t *)&((in_addr *)OriginalAddr)->s_addr) == 0x64 && *((uint8_t *)&((in_addr *)OriginalAddr)->s_addr + sizeof(uint8_t)) > 0x40 && *((uint8_t *)&((in_addr *)OriginalAddr)->s_addr + sizeof(uint8_t)) < 0x7F) || //Carrier-grade NAT addresses(100.64.0.0/10, Section 7 in RFC 6598)
+			(IsPrivateUse && *((uint8_t *)&((in_addr *)OriginalAddr)->s_addr) == 0xA9 && *((uint8_t *)&((in_addr *)OriginalAddr)->s_addr + sizeof(uint8_t)) >= 0xFE) || //Link-local addresses(169.254.0.0/16, Section 1.5 in RFC 3927)
+			(IsPrivateUse && *((uint8_t *)&((in_addr *)OriginalAddr)->s_addr) == 0xAC && *((uint8_t *)&((in_addr *)OriginalAddr)->s_addr + sizeof(uint8_t)) >= 0x10 && *((uint8_t *)&((in_addr *)OriginalAddr)->s_addr + sizeof(uint8_t)) <= 0x1F) || //Private class B addresses(172.16.0.0/12, Section 3 in RFC 1918)
+			(*((uint8_t *)&((in_addr *)OriginalAddr)->s_addr) == 0xC0 && *((uint8_t *)&((in_addr *)OriginalAddr)->s_addr + sizeof(uint8_t)) == 0 && *((uint8_t *)&((in_addr *)OriginalAddr)->s_addr + sizeof(uint8_t) * 2U) == 0 && *((uint8_t *)&((in_addr *)OriginalAddr)->s_addr + sizeof(uint8_t) * 3U) < 0x08) || //DS-Lite transition mechanism addresses(192.0.0.0/29, Section 3 in RFC 6333)
+			(*((uint8_t *)&((in_addr *)OriginalAddr)->s_addr) == 0xC0 && *((uint8_t *)&((in_addr *)OriginalAddr)->s_addr + sizeof(uint8_t)) == 0 && *((uint8_t *)&((in_addr *)OriginalAddr)->s_addr + sizeof(uint8_t) * 2U) == 0) || //Reserved for IETF protocol assignments addresses(192.0.0.0/24, Section 3 in RFC 5735)
+			(*((uint8_t *)&((in_addr *)OriginalAddr)->s_addr) == 0xC0 && *((uint8_t *)&((in_addr *)OriginalAddr)->s_addr + sizeof(uint8_t)) == 0 && *((uint8_t *)&((in_addr *)OriginalAddr)->s_addr + sizeof(uint8_t) * 2U) == 0x02) || //TEST-NET-1 addresses(192.0.2.0/24, Section 3 in RFC 5735)
+			(IsPrivateUse && *((uint8_t *)&((in_addr *)OriginalAddr)->s_addr + sizeof(uint8_t)) == 0x58 && *((uint8_t *)&((in_addr *)OriginalAddr)->s_addr + sizeof(uint8_t) * 2U) == 0x63) || //6to4 relay/tunnel addresses(192.88.99.0/24, Section 2.3 in RFC 3068)
+			(IsPrivateUse && *((uint8_t *)&((in_addr *)OriginalAddr)->s_addr) == 0xC0 && *((uint8_t *)&((in_addr *)OriginalAddr)->s_addr + sizeof(uint8_t)) == 0xA8) || //Private class C addresses(192.168.0.0/16, Section 3 in RFC 1918)
+			(*((uint8_t *)&((in_addr *)OriginalAddr)->s_addr) == 0xC6 && *((uint8_t *)&((in_addr *)OriginalAddr)->s_addr + sizeof(uint8_t)) == 0x12) || //Benchmarking Methodology for Network Interconnect Devices addresses(198.18.0.0/15, Section 11.4.1 in RFC 2544)
+			(*((uint8_t *)&((in_addr *)OriginalAddr)->s_addr) == 0xC6 && *((uint8_t *)&((in_addr *)OriginalAddr)->s_addr + sizeof(uint8_t)) == 0x33 && *((uint8_t *)&((in_addr *)OriginalAddr)->s_addr + sizeof(uint8_t) * 2U) == 0x64) || //TEST-NET-2 addresses(198.51.100.0/24, Section 3 in RFC 5737)
+			(*((uint8_t *)&((in_addr *)OriginalAddr)->s_addr) == 0xCB && *((uint8_t *)&((in_addr *)OriginalAddr)->s_addr + sizeof(uint8_t)) == 0 && *((uint8_t *)&((in_addr *)OriginalAddr)->s_addr + sizeof(uint8_t) * 2U) == 0x71) || //TEST-NET-3 addresses(203.0.113.0/24, Section 3 in RFC 5737)
+			(IsPrivateUse && *((uint8_t *)&((in_addr *)OriginalAddr)->s_addr) == 0xE0) || //Multicast addresses(224.0.0.0/4, Section 2 in RFC 3171)
+			*((uint8_t *)&((in_addr *)OriginalAddr)->s_addr) >= 0xF0) //Reserved for future use address(240.0.0.0/4, Section 4 in RFC 1112) and Broadcast addresses(255.255.255.255/32, Section 7 in RFC 919/RFC 922)
 				return true;
 
 	//Result Blacklist check
-		if (Domain != nullptr)
+		if (DomainBuffer != nullptr)
 		{
 		//Domain Case Conversion
-			std::string InnerDomain((const char *)Domain);
-			CaseConvert(InnerDomain, false);
+			std::string DomainString((const char *)DomainBuffer);
+			CaseConvert(DomainString, false);
 
 		//Main check
 			std::lock_guard<std::mutex> IPFilterFileMutex(IPFilterFileLock);
@@ -569,15 +692,15 @@ bool CheckSpecialAddress(
 			{
 				for (const auto &ResultBlacklistTableIter:IPFilterFileSetIter.ResultBlacklist)
 				{
-					if (ResultBlacklistTableIter.Addresses.front().Begin.ss_family == AF_INET && 
-						(ResultBlacklistTableIter.PatternString.empty() || std::regex_match(InnerDomain, ResultBlacklistTableIter.PatternRegex)))
+					if (!ResultBlacklistTableIter.Addresses.empty() && ResultBlacklistTableIter.Addresses.front().Begin.ss_family == AF_INET && 
+						(ResultBlacklistTableIter.PatternString.empty() || std::regex_match(DomainString, ResultBlacklistTableIter.PatternRegex)))
 					{
 						for (const auto &AddressRangeTableIter:ResultBlacklistTableIter.Addresses)
 						{
 							if ((AddressRangeTableIter.End.ss_family == AF_INET && 
-								AddressesComparing(AF_INET, Addr, &((PSOCKADDR_IN)&AddressRangeTableIter.Begin)->sin_addr) >= ADDRESS_COMPARE_EQUAL && 
-								AddressesComparing(AF_INET, Addr, &((PSOCKADDR_IN)&AddressRangeTableIter.End)->sin_addr) <= ADDRESS_COMPARE_EQUAL) || 
-								((in_addr *)Addr)->s_addr == ((PSOCKADDR_IN)&AddressRangeTableIter.Begin)->sin_addr.s_addr)
+								AddressesComparing(AF_INET, OriginalAddr, &((PSOCKADDR_IN)&AddressRangeTableIter.Begin)->sin_addr) >= ADDRESS_COMPARE_EQUAL && 
+								AddressesComparing(AF_INET, OriginalAddr, &((PSOCKADDR_IN)&AddressRangeTableIter.End)->sin_addr) <= ADDRESS_COMPARE_EQUAL) || 
+								((in_addr *)OriginalAddr)->s_addr == ((PSOCKADDR_IN)&AddressRangeTableIter.Begin)->sin_addr.s_addr)
 									return true;
 						}
 					}
@@ -591,23 +714,41 @@ bool CheckSpecialAddress(
 		{
 			for (const auto &AddressHostsTableIter:HostsFileSetIter.AddressHostsList)
 			{
-				if (AddressHostsTableIter.Address_Target.front().ss_family == AF_INET)
+				if (!AddressHostsTableIter.Address_Target.empty() && AddressHostsTableIter.Address_Target.front().first.ss_family == AF_INET)
 				{
 					for (const auto &AddressRangeTableIter:AddressHostsTableIter.Address_Source)
 					{
+					//Check address.
 						if ((AddressRangeTableIter.Begin.ss_family == AF_INET && AddressRangeTableIter.End.ss_family == AF_INET && 
-							AddressesComparing(AF_INET, Addr, &((PSOCKADDR_IN)&AddressRangeTableIter.Begin)->sin_addr) >= ADDRESS_COMPARE_EQUAL && 
-							AddressesComparing(AF_INET, Addr, &((PSOCKADDR_IN)&AddressRangeTableIter.End)->sin_addr) <= ADDRESS_COMPARE_EQUAL) || 
-							((in_addr *)Addr)->s_addr == ((PSOCKADDR_IN)&AddressRangeTableIter.Begin)->sin_addr.s_addr)
+							AddressesComparing(AF_INET, OriginalAddr, &((PSOCKADDR_IN)&AddressRangeTableIter.Begin)->sin_addr) >= ADDRESS_COMPARE_EQUAL && 
+							AddressesComparing(AF_INET, OriginalAddr, &((PSOCKADDR_IN)&AddressRangeTableIter.End)->sin_addr) <= ADDRESS_COMPARE_EQUAL) || 
+							((in_addr *)OriginalAddr)->s_addr == ((PSOCKADDR_IN)&AddressRangeTableIter.Begin)->sin_addr.s_addr)
 						{
 							if (AddressHostsTableIter.Address_Target.size() > 1U)
 							{
 							//Get a ramdom one.
 								std::uniform_int_distribution<size_t> RamdomDistribution(0, AddressHostsTableIter.Address_Target.size() - 1U);
-								*(in_addr *)Addr = ((PSOCKADDR_IN)&AddressHostsTableIter.Address_Target.at(RamdomDistribution(*GlobalRunningStatus.RamdomEngine)))->sin_addr;
+
+							//Rewrite address.
+								if (AddressHostsTableIter.Address_Target.front().second > 0)
+								{
+									((in_addr *)OriginalAddr)->s_addr = htonl(ntohl(((in_addr *)OriginalAddr)->s_addr) & (UINT32_MAX >> AddressHostsTableIter.Address_Target.front().second));
+									((in_addr *)OriginalAddr)->s_addr = htonl(ntohl(((in_addr *)OriginalAddr)->s_addr) | ntohl(((PSOCKADDR_IN)&AddressHostsTableIter.Address_Target.at(RamdomDistribution(*GlobalRunningStatus.RamdomEngine)).first)->sin_addr.s_addr));
+								}
+								else {
+									*(in_addr *)OriginalAddr = ((PSOCKADDR_IN)&AddressHostsTableIter.Address_Target.at(RamdomDistribution(*GlobalRunningStatus.RamdomEngine)).first)->sin_addr;
+								}
 							}
 							else {
-								*(in_addr *)Addr = ((PSOCKADDR_IN)&AddressHostsTableIter.Address_Target.front())->sin_addr;
+							//Rewrite address.
+								if (AddressHostsTableIter.Address_Target.front().second > 0)
+								{
+									((in_addr *)OriginalAddr)->s_addr = htonl(ntohl(((in_addr *)OriginalAddr)->s_addr) & (UINT32_MAX >> AddressHostsTableIter.Address_Target.front().second));
+									((in_addr *)OriginalAddr)->s_addr = htonl(ntohl(((in_addr *)OriginalAddr)->s_addr) | ntohl(((PSOCKADDR_IN)&AddressHostsTableIter.Address_Target.front().first)->sin_addr.s_addr));
+								}
+								else {
+									*(in_addr *)OriginalAddr = ((PSOCKADDR_IN)&AddressHostsTableIter.Address_Target.front().first)->sin_addr;
+								}
 							}
 
 							break;
@@ -626,7 +767,7 @@ StopLoop:
 //Check routing of addresses
 bool CheckAddressRouting(
 	const uint16_t Protocol, 
-	const void * const Addr)
+	const void * const OriginalAddr)
 {
 	std::lock_guard<std::mutex> IPFilterFileMutex(IPFilterFileLock);
 
@@ -641,13 +782,13 @@ bool CheckAddressRouting(
 				{
 					if (LocalRoutingTableIter.Prefix < sizeof(in6_addr) * BYTES_TO_BITS / 2U)
 					{
-						if (LocalRoutingTableIter.AddressRoutingList_IPv6.count(ntoh64(*(uint64_t *)Addr) & (UINT64_MAX << (sizeof(in6_addr) * BYTES_TO_BITS / 2U - LocalRoutingTableIter.Prefix))) > 0)
+						if (LocalRoutingTableIter.AddressRoutingList_IPv6.count(ntoh64(*(uint64_t *)OriginalAddr) & (UINT64_MAX << (sizeof(in6_addr) * BYTES_TO_BITS / 2U - LocalRoutingTableIter.Prefix))) > 0)
 							return true;
 					}
 					else {
-						const auto AddrMapIter = LocalRoutingTableIter.AddressRoutingList_IPv6.find(ntoh64(*(uint64_t *)Addr));
+						const auto AddrMapIter = LocalRoutingTableIter.AddressRoutingList_IPv6.find(ntoh64(*(uint64_t *)OriginalAddr));
 						if (AddrMapIter != LocalRoutingTableIter.AddressRoutingList_IPv6.end() && 
-							AddrMapIter->second.count(ntoh64(*(uint64_t *)((uint8_t *)Addr + sizeof(in6_addr) / 2U)) & (UINT64_MAX << (sizeof(in6_addr) * BYTES_TO_BITS - LocalRoutingTableIter.Prefix))) > 0)
+							AddrMapIter->second.count(ntoh64(*(uint64_t *)((uint8_t *)OriginalAddr + sizeof(in6_addr) / 2U)) & (UINT64_MAX << (sizeof(in6_addr) * BYTES_TO_BITS - LocalRoutingTableIter.Prefix))) > 0)
 								return true;
 					}
 				}
@@ -660,7 +801,7 @@ bool CheckAddressRouting(
 		{
 			for (const auto &LocalRoutingTableIter:IPFilterFileSetIter.LocalRoutingList)
 			{
-				if (LocalRoutingTableIter.AddressRoutingList_IPv4.count(ntohl(((in_addr *)Addr)->s_addr) & (UINT32_MAX << (sizeof(in_addr) * BYTES_TO_BITS - LocalRoutingTableIter.Prefix))) > 0)
+				if (LocalRoutingTableIter.AddressRoutingList_IPv4.count(ntohl(((in_addr *)OriginalAddr)->s_addr) & (UINT32_MAX << (sizeof(in_addr) * BYTES_TO_BITS - LocalRoutingTableIter.Prefix))) > 0)
 					return true;
 			}
 		}
@@ -683,27 +824,31 @@ bool OperationModeFilter(
 //Proxy Mode address filter
 	else if (Parameter.OperationMode == LISTEN_MODE_PROXY)
 	{
-		if ((Protocol == AF_INET6 && memcmp(OriginalAddr, &in6addr_loopback, sizeof(in6_addr)) == 0) || //IPv6
-			(Protocol == AF_INET && ((in_addr *)OriginalAddr)->s_addr == htonl(INADDR_LOOPBACK))) //IPv4
+		if ((Protocol == AF_INET6 && memcmp(OriginalAddr, &in6addr_loopback, sizeof(in6_addr)) == 0) || //Loopback address(::1, Section 2.5.3 in RFC 4291
+			(Protocol == AF_INET && ((in_addr *)OriginalAddr)->s_addr == htonl(INADDR_LOOPBACK))) //Loopback address(127.0.0.0/8, Section 3.2.1.3 in RFC 1122)
 				return true;
 	}
 //Private Mode address filter
 	else if (Parameter.OperationMode == LISTEN_MODE_PRIVATE)
 	{
-		if (
-		//IPv6
-			(Protocol == AF_INET6 && 
-			((((in6_addr *)OriginalAddr)->s6_bytes[0] >= 0xFC && ((in6_addr *)OriginalAddr)->s6_bytes[0] <= 0xFD) || //Unique Local Unicast address/ULA(FC00::/7, Section 2.5.7 in RFC 4193)
-			(((in6_addr *)OriginalAddr)->s6_bytes[0] == 0xFE && ((in6_addr *)OriginalAddr)->s6_bytes[1U] >= 0x80 && ((in6_addr *)OriginalAddr)->s6_bytes[1U] <= 0xBF) || //Link-Local Unicast Contrast address(FE80::/10, Section 2.5.6 in RFC 4291)
-			(((in6_addr *)OriginalAddr)->s6_words[6U] == 0 && ntohs(((in6_addr *)OriginalAddr)->s6_words[7U]) == 0x0001))) || //Loopback address(::1, Section 2.5.3 in RFC 4291)
-		//IPv4
-			(Protocol == AF_INET && 
-			(((in_addr *)OriginalAddr)->s_net == 0x0A || //Private class A address(10.0.0.0/8, Section 3 in RFC 1918)
-			((in_addr *)OriginalAddr)->s_net == 0x7F || //Loopback address(127.0.0.0/8, Section 3.2.1.3 in RFC 1122)
-			(((in_addr *)OriginalAddr)->s_net == 0xA9 && ((in_addr *)OriginalAddr)->s_host >= 0xFE) || //Link-local addresses(169.254.0.0/16, Section 1.5 in RFC 3927)
-			(((in_addr *)OriginalAddr)->s_net == 0xAC && ((in_addr *)OriginalAddr)->s_host >= 0x10 && ((in_addr *)OriginalAddr)->s_host <= 0x1F) || //Private class B address(172.16.0.0/12, Section 3 in RFC 1918)
-			(((in_addr *)OriginalAddr)->s_net == 0xC0 && ((in_addr *)OriginalAddr)->s_host == 0xA8)))) //Private class C address(192.168.0.0/16, Section 3 in RFC 1918)
-				return true;
+	//IPv6
+		if (Protocol == AF_INET6)
+		{
+			if ((((in6_addr *)OriginalAddr)->s6_addr[0] >= 0xFC && ((in6_addr *)OriginalAddr)->s6_addr[0] <= 0xFD) || //Unique Local Unicast address/ULA(FC00::/7, Section 2.5.7 in RFC 4193)
+				(((in6_addr *)OriginalAddr)->s6_addr[0] == 0xFE && ((in6_addr *)OriginalAddr)->s6_addr[1U] >= 0x80 && ((in6_addr *)OriginalAddr)->s6_addr[1U] <= 0xBF) || //Link-Local Unicast Contrast address(FE80::/10, Section 2.5.6 in RFC 4291)
+				(memcmp(OriginalAddr, &in6addr_loopback, sizeof(in6_addr)) == 0)) //Loopback address(::1, Section 2.5.3 in RFC 4291
+					return true;
+		}
+	//IPv4
+		else if (Protocol == AF_INET)
+		{
+			if (*((uint8_t *)&((in_addr *)OriginalAddr)->s_addr) == 0x0A || //Private class A address(10.0.0.0/8, Section 3 in RFC 1918)
+				*((uint8_t *)&((in_addr *)OriginalAddr)->s_addr) == 0x7F || //Loopback address(127.0.0.0/8, Section 3.2.1.3 in RFC 1122)
+				(*((uint8_t *)&((in_addr *)OriginalAddr)->s_addr) == 0xA9 && *((uint8_t *)&((in_addr *)OriginalAddr)->s_addr + sizeof(uint8_t)) >= 0xFE) || //Link-local addresses(169.254.0.0/16, Section 1.5 in RFC 3927)
+				(*((uint8_t *)&((in_addr *)OriginalAddr)->s_addr) == 0xAC && *((uint8_t *)&((in_addr *)OriginalAddr)->s_addr + sizeof(uint8_t)) >= 0x10 && *((uint8_t *)&((in_addr *)OriginalAddr)->s_addr + sizeof(uint8_t)) <= 0x1F) || //Private class B address(172.16.0.0/12, Section 3 in RFC 1918)
+				(*((uint8_t *)&((in_addr *)OriginalAddr)->s_addr) == 0xC0 && *((uint8_t *)&((in_addr *)OriginalAddr)->s_addr + sizeof(uint8_t)) == 0xA8)) //Private class C address(192.168.0.0/16, Section 3 in RFC 1918)
+					return true;
+		}
 	}
 //Server Mode address filter
 	else if (Parameter.OperationMode == LISTEN_MODE_SERVER)
@@ -723,22 +868,22 @@ bool OperationModeFilter(
 				{
 					for (const auto &AddressRangeTableIter:IPFilterFileSetIter.AddressRange)
 					{
-					//Check Protocol and Level.
+					//Check protocol and level.
 						if (AddressRangeTableIter.Begin.ss_family != AF_INET6 || Parameter.IPFilterLevel == 0 || AddressRangeTableIter.Level >= Parameter.IPFilterLevel)
 							continue;
 
 					//Check address.
-						for (size_t Index = 0;Index < sizeof(in6_addr) / sizeof(uint16_t);++Index)
+						for (size_t Index = 0;Index < sizeof(in6_addr) / sizeof(uint8_t);++Index)
 						{
-							if (ntohs(((in6_addr *)OriginalAddr)->s6_words[Index]) > ntohs(((PSOCKADDR_IN6)&AddressRangeTableIter.Begin)->sin6_addr.s6_words[Index]) && 
-								ntohs(((in6_addr *)OriginalAddr)->s6_words[Index]) < ntohs(((PSOCKADDR_IN6)&AddressRangeTableIter.End)->sin6_addr.s6_words[Index]))
+							if (((in6_addr *)OriginalAddr)->s6_addr[Index] > ((PSOCKADDR_IN6)&AddressRangeTableIter.Begin)->sin6_addr.s6_addr[Index] && 
+								((in6_addr *)OriginalAddr)->s6_addr[Index] < ((PSOCKADDR_IN6)&AddressRangeTableIter.End)->sin6_addr.s6_addr[Index])
 							{
 								return true;
 							}
-							else if (((in6_addr *)OriginalAddr)->s6_words[Index] == ((PSOCKADDR_IN6)&AddressRangeTableIter.Begin)->sin6_addr.s6_words[Index] || 
-								((in6_addr *)OriginalAddr)->s6_words[Index] == ((PSOCKADDR_IN6)&AddressRangeTableIter.End)->sin6_addr.s6_words[Index])
+							else if (((in6_addr *)OriginalAddr)->s6_addr[Index] == ((PSOCKADDR_IN6)&AddressRangeTableIter.Begin)->sin6_addr.s6_addr[Index] || 
+								((in6_addr *)OriginalAddr)->s6_addr[Index] == ((PSOCKADDR_IN6)&AddressRangeTableIter.End)->sin6_addr.s6_addr[Index])
 							{
-								if (Index == sizeof(in6_addr) / sizeof(uint16_t) - 1U)
+								if (Index == sizeof(in6_addr) / sizeof(uint8_t) - 1U)
 									return true;
 							}
 						}
@@ -753,22 +898,22 @@ bool OperationModeFilter(
 				{
 					for (const auto &AddressRangeTableIter:IPFilterFileSetIter.AddressRange)
 					{
-					//Check Protocol and Level.
+					//Check protocol and level.
 						if (AddressRangeTableIter.Begin.ss_family != AF_INET6 || Parameter.IPFilterLevel == 0 || AddressRangeTableIter.Level >= Parameter.IPFilterLevel)
 							continue;
 
 					//Check address.
-						for (size_t Index = 0;Index < sizeof(in6_addr) / sizeof(uint16_t);++Index)
+						for (size_t Index = 0;Index < sizeof(in6_addr) / sizeof(uint8_t);++Index)
 						{
-							if (ntohs(((in6_addr *)OriginalAddr)->s6_words[Index]) > ntohs(((PSOCKADDR_IN6)&AddressRangeTableIter.Begin)->sin6_addr.s6_words[Index]) && 
-								ntohs(((in6_addr *)OriginalAddr)->s6_words[Index]) < ntohs(((PSOCKADDR_IN6)&AddressRangeTableIter.End)->sin6_addr.s6_words[Index]))
+							if (((in6_addr *)OriginalAddr)->s6_addr[Index] > ((PSOCKADDR_IN6)&AddressRangeTableIter.Begin)->sin6_addr.s6_addr[Index] && 
+								((in6_addr *)OriginalAddr)->s6_addr[Index] < ((PSOCKADDR_IN6)&AddressRangeTableIter.End)->sin6_addr.s6_addr[Index])
 							{
 								return false;
 							}
-							else if (((in6_addr *)OriginalAddr)->s6_words[Index] == ((PSOCKADDR_IN6)&AddressRangeTableIter.Begin)->sin6_addr.s6_words[Index] || 
-								((in6_addr *)OriginalAddr)->s6_words[Index] == ((PSOCKADDR_IN6)&AddressRangeTableIter.End)->sin6_addr.s6_words[Index])
+							else if (((in6_addr *)OriginalAddr)->s6_addr[Index] == ((PSOCKADDR_IN6)&AddressRangeTableIter.Begin)->sin6_addr.s6_addr[Index] || 
+								((in6_addr *)OriginalAddr)->s6_addr[Index] == ((PSOCKADDR_IN6)&AddressRangeTableIter.End)->sin6_addr.s6_addr[Index])
 							{
-								if (Index == sizeof(in6_addr) / sizeof(uint16_t) - 1U)
+								if (Index == sizeof(in6_addr) / sizeof(uint8_t) - 1U)
 									return false;
 							}
 						}
@@ -787,37 +932,37 @@ bool OperationModeFilter(
 				{
 					for (const auto &AddressRangeTableIter:IPFilterFileSetIter.AddressRange)
 					{
-					//Check Protocol and Level.
+					//Check protocol and level.
 						if (AddressRangeTableIter.Begin.ss_family != AF_INET || Parameter.IPFilterLevel == 0 || AddressRangeTableIter.Level >= Parameter.IPFilterLevel)
 							continue;
 
 					//Check address.
-						if (((in_addr *)OriginalAddr)->s_net > ((PSOCKADDR_IN)&AddressRangeTableIter.Begin)->sin_addr.s_net && 
-							((in_addr *)OriginalAddr)->s_net < ((PSOCKADDR_IN)&AddressRangeTableIter.End)->sin_addr.s_net)
+						if (*((uint8_t *)&((in_addr *)OriginalAddr)->s_addr) > *((uint8_t *)&((PSOCKADDR_IN)&AddressRangeTableIter.Begin)->sin_addr.s_addr) && 
+							*((uint8_t *)&((in_addr *)OriginalAddr)->s_addr) < *((uint8_t *)&((PSOCKADDR_IN)&AddressRangeTableIter.End)->sin_addr.s_addr))
 						{
 							return true;
 						}
-						else if (((in_addr *)OriginalAddr)->s_net == ((PSOCKADDR_IN)&AddressRangeTableIter.Begin)->sin_addr.s_net || 
-							((in_addr *)OriginalAddr)->s_net == ((PSOCKADDR_IN)&AddressRangeTableIter.End)->sin_addr.s_net)
+						else if (*((uint8_t *)&((in_addr *)OriginalAddr)->s_addr) == *((uint8_t *)&((PSOCKADDR_IN)&AddressRangeTableIter.Begin)->sin_addr.s_addr) || 
+							*((uint8_t *)&((in_addr *)OriginalAddr)->s_addr) == *((uint8_t *)&((PSOCKADDR_IN)&AddressRangeTableIter.End)->sin_addr.s_addr))
 						{
-							if (((in_addr *)OriginalAddr)->s_host > ((PSOCKADDR_IN)&AddressRangeTableIter.Begin)->sin_addr.s_host && 
-								((in_addr *)OriginalAddr)->s_host < ((PSOCKADDR_IN)&AddressRangeTableIter.End)->sin_addr.s_host)
+							if (*((uint8_t *)&((in_addr *)OriginalAddr)->s_addr + sizeof(uint8_t)) > *((uint8_t *)&((PSOCKADDR_IN)&AddressRangeTableIter.Begin)->sin_addr.s_addr + sizeof(uint8_t)) && 
+								*((uint8_t *)&((in_addr *)OriginalAddr)->s_addr + sizeof(uint8_t)) < *((uint8_t *)&((PSOCKADDR_IN)&AddressRangeTableIter.End)->sin_addr.s_addr + sizeof(uint8_t)))
 							{
 								return true;
 							}
-							else if (((in_addr *)OriginalAddr)->s_host == ((PSOCKADDR_IN)&AddressRangeTableIter.Begin)->sin_addr.s_host || 
-								((in_addr *)OriginalAddr)->s_host == ((PSOCKADDR_IN)&AddressRangeTableIter.End)->sin_addr.s_host)
+							else if (*((uint8_t *)&((in_addr *)OriginalAddr)->s_addr + sizeof(uint8_t)) == *((uint8_t *)&((PSOCKADDR_IN)&AddressRangeTableIter.Begin)->sin_addr.s_addr + sizeof(uint8_t)) || 
+								*((uint8_t *)&((in_addr *)OriginalAddr)->s_addr + sizeof(uint8_t)) == *((uint8_t *)&((PSOCKADDR_IN)&AddressRangeTableIter.End)->sin_addr.s_addr + sizeof(uint8_t)))
 							{
-								if (((in_addr *)OriginalAddr)->s_lh > ((PSOCKADDR_IN)&AddressRangeTableIter.Begin)->sin_addr.s_lh && 
-									((in_addr *)OriginalAddr)->s_lh < ((PSOCKADDR_IN)&AddressRangeTableIter.End)->sin_addr.s_lh)
+								if (*((uint8_t *)&((in_addr *)OriginalAddr)->s_addr + sizeof(uint8_t) * 2U) > *((uint8_t *)&((PSOCKADDR_IN)&AddressRangeTableIter.Begin)->sin_addr.s_addr + sizeof(uint8_t) * 2U) && 
+									*((uint8_t *)&((in_addr *)OriginalAddr)->s_addr + sizeof(uint8_t) * 2U) < *((uint8_t *)&((PSOCKADDR_IN)&AddressRangeTableIter.End)->sin_addr.s_addr + sizeof(uint8_t) * 2U))
 								{
 									return true;
 								}
-								else if (((in_addr *)OriginalAddr)->s_lh == ((PSOCKADDR_IN)&AddressRangeTableIter.Begin)->sin_addr.s_lh || 
-									((in_addr *)OriginalAddr)->s_lh == ((PSOCKADDR_IN)&AddressRangeTableIter.End)->sin_addr.s_lh)
+								else if (*((uint8_t *)&((in_addr *)OriginalAddr)->s_addr + sizeof(uint8_t) * 2U) == *((uint8_t *)&((PSOCKADDR_IN)&AddressRangeTableIter.Begin)->sin_addr.s_addr + sizeof(uint8_t) * 2U) || 
+									*((uint8_t *)&((in_addr *)OriginalAddr)->s_addr + sizeof(uint8_t) * 2U) == *((uint8_t *)&((PSOCKADDR_IN)&AddressRangeTableIter.End)->sin_addr.s_addr + sizeof(uint8_t) * 2U))
 								{
-									if (((in_addr *)OriginalAddr)->s_impno >= ((PSOCKADDR_IN)&AddressRangeTableIter.Begin)->sin_addr.s_impno && 
-										((in_addr *)OriginalAddr)->s_impno <= ((PSOCKADDR_IN)&AddressRangeTableIter.End)->sin_addr.s_impno)
+									if (*((uint8_t *)&((in_addr *)OriginalAddr)->s_addr + sizeof(uint8_t) * 3U) >= *((uint8_t *)&((PSOCKADDR_IN)&AddressRangeTableIter.Begin)->sin_addr.s_addr + sizeof(uint8_t) * 3U) && 
+										*((uint8_t *)&((in_addr *)OriginalAddr)->s_addr + sizeof(uint8_t) * 3U) <= *((uint8_t *)&((PSOCKADDR_IN)&AddressRangeTableIter.End)->sin_addr.s_addr + sizeof(uint8_t) * 3U))
 											return true;
 								}
 							}
@@ -833,37 +978,37 @@ bool OperationModeFilter(
 				{
 					for (const auto &AddressRangeTableIter:IPFilterFileSetIter.AddressRange)
 					{
-					//Check Protocol and Level.
+					//Check protocol and level.
 						if (AddressRangeTableIter.Begin.ss_family != AF_INET || Parameter.IPFilterLevel == 0 || AddressRangeTableIter.Level >= Parameter.IPFilterLevel)
 							continue;
 
 					//Check address.
-						if (((in_addr *)OriginalAddr)->s_net > ((PSOCKADDR_IN)&AddressRangeTableIter.Begin)->sin_addr.s_net && 
-							((in_addr *)OriginalAddr)->s_net < ((PSOCKADDR_IN)&AddressRangeTableIter.End)->sin_addr.s_net)
+						if (*((uint8_t *)&((in_addr *)OriginalAddr)->s_addr) > *((uint8_t *)&((PSOCKADDR_IN)&AddressRangeTableIter.Begin)->sin_addr.s_addr) && 
+							*((uint8_t *)&((in_addr *)OriginalAddr)->s_addr) < *((uint8_t *)&((PSOCKADDR_IN)&AddressRangeTableIter.End)->sin_addr.s_addr))
 						{
 							return false;
 						}
-						else if (((in_addr *)OriginalAddr)->s_net == ((PSOCKADDR_IN)&AddressRangeTableIter.Begin)->sin_addr.s_net || 
-							((in_addr *)OriginalAddr)->s_net == ((PSOCKADDR_IN)&AddressRangeTableIter.End)->sin_addr.s_net)
+						else if (*((uint8_t *)&((in_addr *)OriginalAddr)->s_addr) == *((uint8_t *)&((PSOCKADDR_IN)&AddressRangeTableIter.Begin)->sin_addr.s_addr) || 
+							*((uint8_t *)&((in_addr *)OriginalAddr)->s_addr) == *((uint8_t *)&((PSOCKADDR_IN)&AddressRangeTableIter.End)->sin_addr.s_addr))
 						{
-							if (((in_addr *)OriginalAddr)->s_host > ((PSOCKADDR_IN)&AddressRangeTableIter.Begin)->sin_addr.s_host && 
-								((in_addr *)OriginalAddr)->s_host < ((PSOCKADDR_IN)&AddressRangeTableIter.End)->sin_addr.s_host)
+							if (*((uint8_t *)&((in_addr *)OriginalAddr)->s_addr + sizeof(uint8_t)) > *((uint8_t *)&((PSOCKADDR_IN)&AddressRangeTableIter.Begin)->sin_addr.s_addr + sizeof(uint8_t)) && 
+								*((uint8_t *)&((in_addr *)OriginalAddr)->s_addr + sizeof(uint8_t)) < *((uint8_t *)&((PSOCKADDR_IN)&AddressRangeTableIter.End)->sin_addr.s_addr + sizeof(uint8_t)))
 							{
 								return false;
 							}
-							else if (((in_addr *)OriginalAddr)->s_host == ((PSOCKADDR_IN)&AddressRangeTableIter.Begin)->sin_addr.s_host || 
-								((in_addr *)OriginalAddr)->s_host == ((PSOCKADDR_IN)&AddressRangeTableIter.End)->sin_addr.s_host)
+							else if (*((uint8_t *)&((in_addr *)OriginalAddr)->s_addr + sizeof(uint8_t)) == *((uint8_t *)&((PSOCKADDR_IN)&AddressRangeTableIter.Begin)->sin_addr.s_addr + sizeof(uint8_t)) || 
+								*((uint8_t *)&((in_addr *)OriginalAddr)->s_addr + sizeof(uint8_t)) == *((uint8_t *)&((PSOCKADDR_IN)&AddressRangeTableIter.End)->sin_addr.s_addr + sizeof(uint8_t)))
 							{
-								if (((in_addr *)OriginalAddr)->s_lh > ((PSOCKADDR_IN)&AddressRangeTableIter.Begin)->sin_addr.s_lh && 
-									((in_addr *)OriginalAddr)->s_lh < ((PSOCKADDR_IN)&AddressRangeTableIter.End)->sin_addr.s_lh)
+								if (*((uint8_t *)&((in_addr *)OriginalAddr)->s_addr + sizeof(uint8_t) * 2U) > *((uint8_t *)&((PSOCKADDR_IN)&AddressRangeTableIter.Begin)->sin_addr.s_addr + sizeof(uint8_t) * 2U) && 
+									*((uint8_t *)&((in_addr *)OriginalAddr)->s_addr + sizeof(uint8_t) * 2U) < *((uint8_t *)&((PSOCKADDR_IN)&AddressRangeTableIter.End)->sin_addr.s_addr + sizeof(uint8_t) * 2U))
 								{
 									return false;
 								}
-								else if (((in_addr *)OriginalAddr)->s_lh == ((PSOCKADDR_IN)&AddressRangeTableIter.Begin)->sin_addr.s_lh || 
-									((in_addr *)OriginalAddr)->s_lh == ((PSOCKADDR_IN)&AddressRangeTableIter.End)->sin_addr.s_lh)
+								else if (*((uint8_t *)&((in_addr *)OriginalAddr)->s_addr + sizeof(uint8_t) * 2U) == *((uint8_t *)&((PSOCKADDR_IN)&AddressRangeTableIter.Begin)->sin_addr.s_addr + sizeof(uint8_t) * 2U) || 
+									*((uint8_t *)&((in_addr *)OriginalAddr)->s_addr + sizeof(uint8_t) * 2U) == *((uint8_t *)&((PSOCKADDR_IN)&AddressRangeTableIter.End)->sin_addr.s_addr + sizeof(uint8_t) * 2U))
 								{
-									if (((in_addr *)OriginalAddr)->s_impno >= ((PSOCKADDR_IN)&AddressRangeTableIter.Begin)->sin_addr.s_impno && 
-										((in_addr *)OriginalAddr)->s_impno <= ((PSOCKADDR_IN)&AddressRangeTableIter.End)->sin_addr.s_impno)
+									if (*((uint8_t *)&((in_addr *)OriginalAddr)->s_addr + sizeof(uint8_t) * 3U) >= *((uint8_t *)&((PSOCKADDR_IN)&AddressRangeTableIter.Begin)->sin_addr.s_addr + sizeof(uint8_t) * 3U) && 
+										*((uint8_t *)&((in_addr *)OriginalAddr)->s_addr + sizeof(uint8_t) * 3U) <= *((uint8_t *)&((PSOCKADDR_IN)&AddressRangeTableIter.End)->sin_addr.s_addr + sizeof(uint8_t) * 3U))
 											return false;
 								}
 							}
@@ -975,7 +1120,6 @@ bool CheckQueryData(
 
 //Scan all Resource Records.
 	size_t PacketIndex = DNS_PACKET_RR_LOCATE(Packet->Buffer);
-	pdns_record_standard DNS_Record_Standard = nullptr;
 	uint16_t DNS_Pointer = 0;
 	Packet->Question = CheckQueryNameLength(Packet->Buffer + sizeof(dns_hdr)) + 1U + sizeof(dns_qry);
 	Packet->Answer = 0, Packet->Authority = 0, Packet->Additional = 0, Packet->EDNS_Record = 0;
@@ -995,7 +1139,7 @@ bool CheckQueryData(
 			return false;
 
 	//Standard Resource Records
-		DNS_Record_Standard = (pdns_record_standard)(Packet->Buffer + PacketIndex + RecordLength);
+		auto DNS_Record_Standard = (pdns_record_standard)(Packet->Buffer + PacketIndex + RecordLength);
 		RecordLength += sizeof(dns_record_standard);
 		if (PacketIndex + RecordLength > Packet->Length || PacketIndex + RecordLength + ntohs(DNS_Record_Standard->Length) > Packet->Length)
 			return false;
@@ -1026,8 +1170,8 @@ bool CheckQueryData(
 	}
 
 //UDP Truncated check
-	if (Packet->Protocol == IPPROTO_UDP && Packet->Length + EDNS_ADDITIONAL_MAXSIZE > Parameter.EDNSPayloadSize && 
-		(Parameter.EDNS_Label || Packet->Length > Parameter.EDNSPayloadSize))
+	if (Packet->Protocol == IPPROTO_UDP && Packet->Length + EDNS_ADDITIONAL_MAXSIZE > Parameter.EDNS_PayloadSize && 
+		(Parameter.EDNS_Label || Packet->Length > Parameter.EDNS_PayloadSize))
 	{
 	//Make packets with EDNS Label.
 		DNS_Header->Flags = htons(DNS_SET_R_TC);
@@ -1162,11 +1306,12 @@ size_t CheckResponse_CNAME(
 //Mark whole DNS query.
 	std::string Domain;
 	auto DataLength = MarkWholePacketQuery(Buffer, Length, Buffer + CNAME_Index, CNAME_Index, Domain);
-	if (DataLength <= DOMAIN_MINSIZE || DataLength >= DOMAIN_MAXSIZE)
+	if (DataLength <= DOMAIN_MINSIZE || DataLength >= DOMAIN_MAXSIZE || Domain.empty())
 		return EXIT_FAILURE;
+	else 
+		DataLength = 0;
 	const auto DNS_Header = (pdns_hdr)Buffer;
 	const auto DNS_Query = (pdns_qry)(Buffer + DNS_PACKET_QUERY_LOCATE(Buffer));
-	DataLength = 0;
 	RecordNum = 0;
 	CaseConvert(Domain, false);
 
@@ -1186,7 +1331,7 @@ size_t CheckResponse_CNAME(
 		//Dnsmasq normal mode(http://www.thekelleys.org.uk/dnsmasq/docs/dnsmasq-man.html)
 			if (HostsTableIter.IsStringMatching && !HostsTableIter.PatternOrDomainString.empty())
 			{
-				if (HostsTableIter.PatternOrDomainString == "#" || //Dnsmasq "#" matches any domain.
+				if (HostsTableIter.PatternOrDomainString == ("#") || //Dnsmasq "#" matches any domain.
 					(HostsTableIter.PatternOrDomainString.front() == ReverseDomain.front() && //Fast check to reduce resource using
 					CompareStringReversed(HostsTableIter.PatternOrDomainString, ReverseDomain)))
 						IsMatch = true;
@@ -1240,14 +1385,15 @@ size_t CheckResponse_CNAME(
 						((pdns_record_aaaa)DNS_Record)->Type = htons(DNS_TYPE_AAAA);
 						((pdns_record_aaaa)DNS_Record)->Length = htons(sizeof(in6_addr));
 						if (Index == 0)
-							((pdns_record_aaaa)DNS_Record)->Addr = HostsTableIter.AddrOrTargetList.at(RamdomIndex).IPv6.sin6_addr;
+							((pdns_record_aaaa)DNS_Record)->Address = HostsTableIter.AddrOrTargetList.at(RamdomIndex).IPv6.sin6_addr;
 						else if (Index == RamdomIndex)
-							((pdns_record_aaaa)DNS_Record)->Addr = HostsTableIter.AddrOrTargetList.front().IPv6.sin6_addr;
+							((pdns_record_aaaa)DNS_Record)->Address = HostsTableIter.AddrOrTargetList.front().IPv6.sin6_addr;
 						else 
-							((pdns_record_aaaa)DNS_Record)->Addr = HostsTableIter.AddrOrTargetList.at(Index).IPv6.sin6_addr;
+							((pdns_record_aaaa)DNS_Record)->Address = HostsTableIter.AddrOrTargetList.at(Index).IPv6.sin6_addr;
 
 					//Hosts items length check
-						if (((Parameter.EDNS_Label || DNS_Header->Additional > 0) && DataLength + sizeof(dns_record_aaaa) + EDNS_ADDITIONAL_MAXSIZE >= BufferSize) || //EDNS Label
+						if (((Parameter.EDNS_Label || DNS_Header->Additional > 0) && 
+							DataLength + sizeof(dns_record_aaaa) + EDNS_ADDITIONAL_MAXSIZE >= BufferSize) || //EDNS Label
 							DataLength + sizeof(dns_record_aaaa) >= BufferSize) //Normal query
 						{
 							++Index;
@@ -1295,14 +1441,15 @@ size_t CheckResponse_CNAME(
 						((pdns_record_a)DNS_Record)->Type = htons(DNS_TYPE_A);
 						((pdns_record_a)DNS_Record)->Length = htons(sizeof(in_addr));
 						if (Index == 0)
-							((pdns_record_a)DNS_Record)->Addr = HostsTableIter.AddrOrTargetList.at(RamdomIndex).IPv4.sin_addr;
+							((pdns_record_a)DNS_Record)->Address = HostsTableIter.AddrOrTargetList.at(RamdomIndex).IPv4.sin_addr;
 						else if (Index == RamdomIndex)
-							((pdns_record_a)DNS_Record)->Addr = HostsTableIter.AddrOrTargetList.front().IPv4.sin_addr;
+							((pdns_record_a)DNS_Record)->Address = HostsTableIter.AddrOrTargetList.front().IPv4.sin_addr;
 						else 
-							((pdns_record_a)DNS_Record)->Addr = HostsTableIter.AddrOrTargetList.at(Index).IPv4.sin_addr;
+							((pdns_record_a)DNS_Record)->Address = HostsTableIter.AddrOrTargetList.at(Index).IPv4.sin_addr;
 
 					//Hosts items length check
-						if (((Parameter.EDNS_Label || DNS_Header->Additional > 0) && DataLength + sizeof(dns_record_a) + EDNS_ADDITIONAL_MAXSIZE >= BufferSize) || //EDNS Label
+						if (((Parameter.EDNS_Label || DNS_Header->Additional > 0) && 
+							DataLength + sizeof(dns_record_a) + EDNS_ADDITIONAL_MAXSIZE >= BufferSize) || //EDNS Label
 							DataLength + sizeof(dns_record_a) >= BufferSize) //Normal query
 						{
 							++Index;
@@ -1386,7 +1533,7 @@ size_t CheckResponseData(
 	#endif
 		)
 	{
-		for (size_t Index = sizeof(dns_hdr);Index < DNS_PACKET_QUERY_LOCATE(Buffer);++Index)
+		for (auto Index = sizeof(dns_hdr);Index < DNS_PACKET_QUERY_LOCATE(Buffer);++Index)
 		{
 			if (*(Buffer + Index) == (uint8_t)DNS_POINTER_8_BITS_STRING)
 				return EXIT_FAILURE;
@@ -1417,7 +1564,6 @@ size_t CheckResponseData(
 	uint16_t DNS_Pointer = 0, BeforeType = 0;
 	uint32_t Record_TTL = 0;
 	pdns_record_standard DNS_Record_Standard = nullptr;
-	void *Addr = nullptr;
 	auto IsEDNS_Label = false, IsDNSSEC_Records = false, IsGotAddressResult = false;
 
 //Scan all Resource Records.
@@ -1498,10 +1644,9 @@ size_t CheckResponseData(
 					return EXIT_FAILURE;
 
 			//Check addresses.
-				Addr = (in6_addr *)(Buffer + DataLength);
-				if ((Parameter.DataCheck_Blacklist && CheckSpecialAddress(AF_INET6, Addr, false, DomainString)) || 
-					(Index < ntohs(DNS_Header->Answer) && !Parameter.LocalHosts && Parameter.LocalRouting && 
-					ResponseType == REQUEST_PROCESS_LOCAL && !CheckAddressRouting(AF_INET6, Addr)))
+				if ((Parameter.DataCheck_Blacklist && CheckSpecialAddress(AF_INET6, Buffer + DataLength, false, DomainString)) || 
+					(Index < ntohs(DNS_Header->Answer) && !Parameter.IsLocalHosts && Parameter.IsLocalRouting && 
+					ResponseType == REQUEST_PROCESS_LOCAL && !CheckAddressRouting(AF_INET6, Buffer + DataLength)))
 						return EXIT_FAILURE;
 
 			//Strict resource record TTL check when enforce strict RFC 2181(https://tools.ietf.org/html/rfc2181) compliance
@@ -1525,10 +1670,9 @@ size_t CheckResponseData(
 					return EXIT_FAILURE;
 
 			//Check addresses.
-				Addr = (in_addr *)(Buffer + DataLength);
-				if ((Parameter.DataCheck_Blacklist && CheckSpecialAddress(AF_INET, Addr, false, DomainString)) || 
-					(Index < ntohs(DNS_Header->Answer) && !Parameter.LocalHosts && Parameter.LocalRouting && 
-					ResponseType == REQUEST_PROCESS_LOCAL && !CheckAddressRouting(AF_INET, Addr)))
+				if ((Parameter.DataCheck_Blacklist && CheckSpecialAddress(AF_INET, Buffer + DataLength, false, DomainString)) || 
+					(Index < ntohs(DNS_Header->Answer) && !Parameter.IsLocalHosts && Parameter.IsLocalRouting && 
+					ResponseType == REQUEST_PROCESS_LOCAL && !CheckAddressRouting(AF_INET, Buffer + DataLength)))
 						return EXIT_FAILURE;
 
 			//Strict resource record TTL check when enforce strict RFC 2181(https://tools.ietf.org/html/rfc2181) compliance
@@ -1574,7 +1718,7 @@ size_t CheckResponseData(
 		(ResponseType == REQUEST_PROCESS_TCP && Parameter.EDNS_Switch_TCP) || //TCP
 		((ResponseType == REQUEST_PROCESS_UDP_NORMAL || ResponseType == REQUEST_PROCESS_UDP_NO_MARKING) && Parameter.EDNS_Switch_UDP)) && //UDP
 		(!IsEDNS_Label || (Parameter.DNSSEC_Request && Parameter.DNSSEC_ForceValidation && !IsDNSSEC_Records))) || 
-		(ResponseType == REQUEST_PROCESS_LOCAL && !Parameter.LocalForce && !IsGotAddressResult)
+		(ResponseType == REQUEST_PROCESS_LOCAL && !Parameter.IsLocalForce && !IsGotAddressResult)
 	#if defined(ENABLE_LIBSODIUM)
 		)
 	#endif
@@ -1583,7 +1727,10 @@ size_t CheckResponseData(
 
 #if defined(ENABLE_PCAP)
 //Mark Hop Limits or TTL.
-	if (ResponseType != REQUEST_PROCESS_DNSCURVE_SIGN && 
+	if (
+	#if defined(ENABLE_LIBSODIUM)
+		ResponseType != REQUEST_PROCESS_DNSCURVE_SIGN && 
+	#endif	
 		((IsMarkHopLimit != nullptr && Parameter.HeaderCheck_DNS && 
 //		ntohs(DNS_Header->Answer) != U16_NUM_ONE || //Some ISP will return fake responses with more than one Answer records.
 		(DNS_Header->Answer == 0 || //No any Answer records
