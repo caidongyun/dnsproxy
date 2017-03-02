@@ -1,6 +1,6 @@
 ﻿// This code is part of Pcap_DNSProxy
 // A local DNS server based on WinPcap and LibPcap
-// Copyright (C) 2012-2016 Chengr28
+// Copyright (C) 2012-2017 Chengr28
 // 
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License
@@ -21,15 +21,15 @@
 
 //Print errors to log file
 bool PrintError(
-	const size_t ErrorLevel, 
-	const size_t ErrorType, 
+	const LOG_LEVEL_TYPE ErrorLevel, 
+	const LOG_ERROR_TYPE ErrorType, 
 	const wchar_t * const Message, 
 	const ssize_t ErrorCode, 
 	const wchar_t * const FileName, 
 	const size_t Line)
 {
 //Print log level check, parameter check, message check and file name check
-	if (Parameter.PrintLogLevel == LOG_LEVEL_0 || ErrorLevel > Parameter.PrintLogLevel || Message == nullptr)
+	if (Parameter.PrintLogLevel == LOG_LEVEL_TYPE::LEVEL_0 || ErrorLevel > Parameter.PrintLogLevel || Message == nullptr)
 		return false;
 	std::wstring ErrorMessage(Message);
 	if (ErrorMessage.empty())
@@ -65,47 +65,47 @@ bool PrintError(
 	switch (ErrorType)
 	{
 	//Message Notice
-		case LOG_MESSAGE_NOTICE:
+		case LOG_ERROR_TYPE::NOTICE:
 		{
 			ErrorMessage.append(L"[Notice] ");
 		}break;
 	//System Error
-	//About System Error Codes, visit https://msdn.microsoft.com/en-us/library/windows/desktop/ms681381(v=vs.85).aspx.
-		case LOG_ERROR_SYSTEM:
+	//About System Error Codes, please visit https://msdn.microsoft.com/en-us/library/windows/desktop/ms681381(v=vs.85).aspx.
+		case LOG_ERROR_TYPE::SYSTEM:
 		{
 			ErrorMessage.append(L"[System Error] ");
 		}break;
 	//Parameter Error
-		case LOG_ERROR_PARAMETER:
+		case LOG_ERROR_TYPE::PARAMETER:
 		{
 			ErrorMessage.append(L"[Parameter Error] ");
 		}break;
 	//IPFilter Error
-		case LOG_ERROR_IPFILTER:
+		case LOG_ERROR_TYPE::IPFILTER:
 		{
 			ErrorMessage.append(L"[IPFilter Error] ");
 		}break;
 	//Hosts Error
-		case LOG_ERROR_HOSTS:
+		case LOG_ERROR_TYPE::HOSTS:
 		{
 			ErrorMessage.append(L"[Hosts Error] ");
 		}break;
 	//Network Error
-	//About Windows Sockets error codes, visit https://msdn.microsoft.com/en-us/library/windows/desktop/ms740668(v=vs.85).aspx.
-		case LOG_ERROR_NETWORK:
+	//About Windows Sockets error codes, please visit https://msdn.microsoft.com/en-us/library/windows/desktop/ms740668(v=vs.85).aspx.
+		case LOG_ERROR_TYPE::NETWORK:
 		{
 		//Block error messages when getting Network Unreachable and Host Unreachable error.
-			if (Parameter.PrintLogLevel < LOG_LEVEL_3 && (ErrorCode == WSAENETUNREACH || ErrorCode == WSAEHOSTUNREACH))
+			if (Parameter.PrintLogLevel < LOG_LEVEL_TYPE::LEVEL_3 && (ErrorCode == WSAENETUNREACH || ErrorCode == WSAEHOSTUNREACH))
 				return true;
 			else 
 				ErrorMessage.append(L"[Network Error] ");
 		}break;
 	//WinPcap/LibPcap Error
-	//About WinPcap/LibPcap error codes, visit https://www.winpcap.org/docs/docs_40_2/html/group__wpcapfunc.html.
+	//About WinPcap/LibPcap error codes, please visit https://www.winpcap.org/docs/docs_40_2/html/group__wpcapfunc.html.
 	#if defined(ENABLE_PCAP)
-		case LOG_ERROR_PCAP:
+		case LOG_ERROR_TYPE::PCAP:
 		{
-		//There are no any error codes or file names to be reported in LOG_ERROR_PCAP.
+		//There are no any error codes or file names to be reported in LOG_ERROR_TYPE::PCAP.
 			ErrorMessage.append(L"[Pcap Error] ");
 			ErrorMessage.append(Message);
 
@@ -114,27 +114,27 @@ bool PrintError(
 	#endif
 	//DNSCurve Error
 	#if defined(ENABLE_LIBSODIUM)
-		case LOG_ERROR_DNSCURVE:
+		case LOG_ERROR_TYPE::DNSCURVE:
 		{
 			ErrorMessage.append(L"[DNSCurve Error] ");
 		}break;
 	#endif
 	//SOCKS Error
-		case LOG_ERROR_SOCKS:
+		case LOG_ERROR_TYPE::SOCKS:
 		{
 			ErrorMessage.append(L"[SOCKS Error] ");
 		}break;
 	//HTTP CONNECT Error
 	//About HTTP status codes, vitis https://en.wikipedia.org/wiki/List_of_HTTP_status_codes.
-		case LOG_ERROR_HTTP_CONNECT:
+		case LOG_ERROR_TYPE::HTTP_CONNECT:
 		{
 			ErrorMessage.append(L"[HTTP CONNECT Error] ");
 		}break;
 	//TLS Error
-	//About SSPI/SChannel error codes, visit https://msdn.microsoft.com/en-us/library/windows/desktop/aa380499(v=vs.85).aspx and https://msdn.microsoft.com/en-us/library/windows/desktop/dd721886(v=vs.85).aspx.
-	//About OpenSSL error codes, visit https://www.openssl.org/docs/manmaster/man3/ERR_get_error.html.
+	//About SSPI/SChannel error codes, please visit https://msdn.microsoft.com/en-us/library/windows/desktop/aa380499(v=vs.85).aspx and https://msdn.microsoft.com/en-us/library/windows/desktop/dd721886(v=vs.85).aspx.
+	//About OpenSSL error codes, please visit https://www.openssl.org/docs/manmaster/man3/ERR_get_error.html.
 	#if defined(ENABLE_TLS)
-		case LOG_ERROR_TLS:
+		case LOG_ERROR_TYPE::TLS:
 		{
 			ErrorMessage.append(L"[TLS Error] ");
 		}break;
@@ -221,10 +221,10 @@ bool WriteMessage_ScreenFile(
 
 //Check whole file size.
 	auto IsFileDeleted = false;
-	std::lock_guard<std::mutex> ErrorLogMutex(ErrorLogLock);
 #if defined(PLATFORM_WIN)
 	WIN32_FILE_ATTRIBUTE_DATA FileAttributeData;
 	memset(&FileAttributeData, 0, sizeof(FileAttributeData));
+	std::lock_guard<std::mutex> ErrorLogMutex(ErrorLogLock);
 	if (GetFileAttributesExW(
 		GlobalRunningStatus.Path_ErrorLog->c_str(), 
 		GetFileExInfoStandard, 
@@ -234,7 +234,7 @@ bool WriteMessage_ScreenFile(
 		memset(&ErrorFileSize, 0, sizeof(ErrorFileSize));
 		ErrorFileSize.HighPart = FileAttributeData.nFileSizeHigh;
 		ErrorFileSize.LowPart = FileAttributeData.nFileSizeLow;
-		if (ErrorFileSize.QuadPart > 0 && (uint64_t)ErrorFileSize.QuadPart >= Parameter.LogMaxSize)
+		if (ErrorFileSize.QuadPart > 0 && static_cast<uint64_t>(ErrorFileSize.QuadPart) >= Parameter.LogMaxSize)
 		{
 			if (DeleteFileW(
 				GlobalRunningStatus.Path_ErrorLog->c_str()) != FALSE)
@@ -246,7 +246,8 @@ bool WriteMessage_ScreenFile(
 #elif (defined(PLATFORM_LINUX) || defined(PLATFORM_MACOS))
 	struct stat FileStatData;
 	memset(&FileStatData, 0, sizeof(FileStatData));
-	if (stat(GlobalRunningStatus.MBS_Path_ErrorLog->c_str(), &FileStatData) == 0 && FileStatData.st_size >= (off_t)Parameter.LogMaxSize)
+	std::lock_guard<std::mutex> ErrorLogMutex(ErrorLogLock);
+	if (stat(GlobalRunningStatus.MBS_Path_ErrorLog->c_str(), &FileStatData) == 0 && FileStatData.st_size >= static_cast<off_t>(Parameter.LogMaxSize))
 	{
 		if (remove(GlobalRunningStatus.MBS_Path_ErrorLog->c_str()) == 0)
 			IsFileDeleted = true;
@@ -342,7 +343,7 @@ void PrintToScreen(
 
 //Print more details about error code
 void ErrorCodeToMessage(
-	const size_t ErrorType, 
+	const LOG_ERROR_TYPE ErrorType, 
 	const ssize_t ErrorCode, 
 	std::wstring &Message)
 {
@@ -358,21 +359,21 @@ void ErrorCodeToMessage(
 	if (FormatMessageW(
 		FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS | FORMAT_MESSAGE_MAX_WIDTH_MASK, 
 		nullptr, 
-		(DWORD)ErrorCode, 
+		static_cast<DWORD>(ErrorCode), 
 		MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US), 
-		(LPWSTR)&InnerMessage, 
+		reinterpret_cast<LPWSTR>(&InnerMessage), 
 		0, 
 		nullptr) == 0)
 	{
 	//Define error code format.
 	#if defined(ENABLE_TLS)
 		#if defined(PLATFORM_WIN)
-			if (ErrorType == LOG_ERROR_TLS)
+			if (ErrorType == LOG_ERROR_TYPE::TLS)
 				Message.append(L"0x%x");
 			else 
 		#endif
 	#endif
-		if (ErrorType == LOG_MESSAGE_NOTICE || ErrorType == LOG_ERROR_SYSTEM || ErrorType == LOG_ERROR_SOCKS || ErrorType == LOG_ERROR_HTTP_CONNECT)
+		if (ErrorType == LOG_ERROR_TYPE::NOTICE || ErrorType == LOG_ERROR_TYPE::SYSTEM || ErrorType == LOG_ERROR_TYPE::SOCKS || ErrorType == LOG_ERROR_TYPE::HTTP_CONNECT)
 			Message.append(L"%u");
 		else 
 			Message.append(L"%d");
@@ -392,12 +393,12 @@ void ErrorCodeToMessage(
 	//Define error code format.
 	#if defined(ENABLE_TLS)
 		#if defined(PLATFORM_WIN)
-			if (ErrorType == LOG_ERROR_TLS)
+			if (ErrorType == LOG_ERROR_TYPE::TLS)
 				Message.append(L"[0x%x]");
 			else 
 		#endif
 	#endif
-		if (ErrorType == LOG_ERROR_SYSTEM || ErrorType == LOG_ERROR_SOCKS || ErrorType == LOG_ERROR_HTTP_CONNECT)
+		if (ErrorType == LOG_ERROR_TYPE::SYSTEM || ErrorType == LOG_ERROR_TYPE::SOCKS || ErrorType == LOG_ERROR_TYPE::HTTP_CONNECT)
 			Message.append(L"[%u]");
 		else 
 			Message.append(L"[%d]");
@@ -407,8 +408,8 @@ void ErrorCodeToMessage(
 	}
 #elif (defined(PLATFORM_LINUX) || defined(PLATFORM_MACOS))
 	std::wstring InnerMessage;
-	auto ErrorMessage = strerror((int)ErrorCode);
-	if (ErrorMessage == nullptr || !MBS_To_WCS_String((const uint8_t *)ErrorMessage, strnlen(ErrorMessage, FILE_BUFFER_SIZE), InnerMessage))
+	const auto ErrorMessage = strerror(static_cast<int>(ErrorCode));
+	if (ErrorMessage == nullptr || !MBS_To_WCS_String(reinterpret_cast<const uint8_t *>(ErrorMessage), strnlen(ErrorMessage, FILE_BUFFER_SIZE), InnerMessage))
 	{
 		Message.append(L"%d");
 	}
@@ -423,27 +424,27 @@ void ErrorCodeToMessage(
 
 //Print error of reading text
 void ReadTextPrintLog(
-	const size_t InputType, 
+	const READ_TEXT_TYPE InputType, 
 	const size_t FileIndex, 
 	const size_t Line)
 {
 	switch (InputType)
 	{
-		case READ_TEXT_HOSTS: //ReadHosts
+		case READ_TEXT_TYPE::HOSTS: //ReadHosts
 		{
-			PrintError(LOG_LEVEL_2, LOG_ERROR_HOSTS, L"Data of a line is too short", 0, FileList_Hosts.at(FileIndex).FileName.c_str(), Line);
+			PrintError(LOG_LEVEL_TYPE::LEVEL_2, LOG_ERROR_TYPE::HOSTS, L"Data of a line is too short", 0, FileList_Hosts.at(FileIndex).FileName.c_str(), Line);
 		}break;
-		case READ_TEXT_IPFILTER: //ReadIPFilter
+		case READ_TEXT_TYPE::IPFILTER: //ReadIPFilter
 		{
-			PrintError(LOG_LEVEL_2, LOG_ERROR_IPFILTER, L"Data of a line is too short", 0, FileList_IPFilter.at(FileIndex).FileName.c_str(), Line);
+			PrintError(LOG_LEVEL_TYPE::LEVEL_2, LOG_ERROR_TYPE::IPFILTER, L"Data of a line is too short", 0, FileList_IPFilter.at(FileIndex).FileName.c_str(), Line);
 		}break;
-		case READ_TEXT_PARAMETER_NORMAL: //ReadParameter
+		case READ_TEXT_TYPE::PARAMETER_NORMAL: //ReadParameter
 		{
-			PrintError(LOG_LEVEL_2, LOG_ERROR_PARAMETER, L"Data of a line is too short", 0, FileList_Config.at(FileIndex).FileName.c_str(), Line);
+			PrintError(LOG_LEVEL_TYPE::LEVEL_2, LOG_ERROR_TYPE::PARAMETER, L"Data of a line is too short", 0, FileList_Config.at(FileIndex).FileName.c_str(), Line);
 		}break;
-		case READ_TEXT_PARAMETER_MONITOR: //ReadParameter(Monitor mode)
+		case READ_TEXT_TYPE::PARAMETER_MONITOR: //ReadParameter(Monitor mode)
 		{
-			PrintError(LOG_LEVEL_2, LOG_ERROR_PARAMETER, L"Data of a line is too short", 0, FileList_Config.at(FileIndex).FileName.c_str(), Line);
+			PrintError(LOG_LEVEL_TYPE::LEVEL_2, LOG_ERROR_TYPE::PARAMETER, L"Data of a line is too short", 0, FileList_Config.at(FileIndex).FileName.c_str(), Line);
 		}break;
 	}
 
@@ -453,24 +454,24 @@ void ReadTextPrintLog(
 #if defined(ENABLE_LIBSODIUM)
 //DNSCurve print error of servers
 void DNSCurvePrintLog(
-	const size_t ServerType, 
+	const DNSCURVE_SERVER_TYPE ServerType, 
 	std::wstring &Message)
 {
 	switch (ServerType)
 	{
-		case DNSCURVE_MAIN_IPV6:
+		case DNSCURVE_SERVER_TYPE::MAIN_IPV6:
 		{
 			Message = L"IPv6 Main Server ";
 		}break;
-		case DNSCURVE_MAIN_IPV4:
+		case DNSCURVE_SERVER_TYPE::MAIN_IPV4:
 		{
 			Message = L"IPv4 Main Server ";
 		}break;
-		case DNSCURVE_ALTERNATE_IPV6:
+		case DNSCURVE_SERVER_TYPE::ALTERNATE_IPV6:
 		{
 			Message = L"IPv6 Alternate Server ";
 		}break;
-		case DNSCURVE_ALTERNATE_IPV4:
+		case DNSCURVE_SERVER_TYPE::ALTERNATE_IPV4:
 		{
 			Message = L"IPv4 Alternate Server ";
 		}break;

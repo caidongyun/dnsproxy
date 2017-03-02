@@ -1,6 +1,6 @@
 ﻿// This code is part of Pcap_DNSProxy
 // A local DNS server based on WinPcap and LibPcap
-// Copyright (C) 2012-2016 Chengr28
+// Copyright (C) 2012-2017 Chengr28
 // 
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License
@@ -20,35 +20,38 @@
 #include "Configuration.h"
 
 //Global variables
-size_t ParameterHopLimitIndex[]{0, 0};
+size_t ParameterHopLimitsIndex[]{0, 0};
 
 //Read texts
 bool ReadText(
 	const FILE * const FileHandle, 
-	const size_t InputType, 
+	const READ_TEXT_TYPE InputType, 
 	const size_t FileIndex)
 {
 //Reset global variables.
-	if (InputType == READ_TEXT_PARAMETER_NORMAL || InputType == READ_TEXT_PARAMETER_MONITOR)
+	if (InputType == READ_TEXT_TYPE::PARAMETER_NORMAL || InputType == READ_TEXT_TYPE::PARAMETER_MONITOR)
 	{
-		ParameterHopLimitIndex[NETWORK_LAYER_IPV6] = 0;
-		ParameterHopLimitIndex[NETWORK_LAYER_IPV4] = 0;
+		ParameterHopLimitsIndex[NETWORK_LAYER_TYPE_IPV6] = 0;
+		ParameterHopLimitsIndex[NETWORK_LAYER_TYPE_IPV4] = 0;
 	}
 
 //Initialization
-	std::shared_ptr<uint8_t> FileBuffer(new uint8_t[FILE_BUFFER_SIZE]()), TextBuffer(new uint8_t[FILE_BUFFER_SIZE]());
+	std::unique_ptr<uint8_t> FileBuffer(new uint8_t[FILE_BUFFER_SIZE]());
+	std::unique_ptr<uint8_t> TextBuffer(new uint8_t[FILE_BUFFER_SIZE]());
 	memset(FileBuffer.get(), 0, FILE_BUFFER_SIZE);
 	memset(TextBuffer.get(), 0, FILE_BUFFER_SIZE);
 	std::string TextData;
-	size_t Encoding = 0, Index = 0, Line = 0, LabelType = 0;
+	auto LabelType_IPFilter = LABEL_IPFILTER_TYPE::NONE;
+	auto LabelType_Hosts = LABEL_HOSTS_TYPE::NONE;
+	size_t Encoding = 0, Index = 0, Line = 0;
 	auto IsEraseBOM = true, NewLinePoint = false, IsStopLabel = false;
 
 //Read data.
-	while (!feof((FILE *)FileHandle))
+	while (!feof(const_cast<FILE *>(FileHandle)))
 	{
 	//Read file and Mark last read.
 		_set_errno(0);
-		auto ReadLength = fread_s(FileBuffer.get(), FILE_BUFFER_SIZE, sizeof(uint8_t), FILE_BUFFER_SIZE, (FILE *)FileHandle);
+		auto ReadLength = fread_s(FileBuffer.get(), FILE_BUFFER_SIZE, sizeof(uint8_t), FILE_BUFFER_SIZE, const_cast<FILE *>(FileHandle));
 		if (ReadLength == 0)
 		{
 			if (errno != 0)
@@ -127,10 +130,10 @@ bool ReadText(
 			uint16_t SingleText = 0;
 			for (Index = 0;Index < ReadLength;)
 			{
-			//About this check process, visit https://en.wikipedia.org/wiki/UTF-8.
+			//About this check process, please visit https://en.wikipedia.org/wiki/UTF-8.
 				if (FileBuffer.get()[Index] > 0xE0 && Index >= 3U)
 				{
-					SingleText = (((uint16_t)(FileBuffer.get()[Index] & 0x0F)) << 12U) + (((uint16_t)(FileBuffer.get()[Index + 1U] & 0x3F)) << 6U) + (uint16_t)(FileBuffer.get()[Index + 2U] & 0x3F);
+					SingleText = ((static_cast<uint16_t>(FileBuffer.get()[Index] & 0x0F)) << 12U) + ((static_cast<uint16_t>(FileBuffer.get()[Index + 1U] & 0x3F)) << 6U) + static_cast<uint16_t>(FileBuffer.get()[Index + 2U] & 0x3F);
 
 				//Next line format
 					if (SingleText == UNICODE_LINE_SEPARATOR || SingleText == UNICODE_PARAGRAPH_SEPARATOR)
@@ -158,7 +161,7 @@ bool ReadText(
 				}
 				else if (FileBuffer.get()[Index] > 0xC0 && Index >= 2U)
 				{
-					SingleText = (((uint16_t)(FileBuffer.get()[Index] & 0x1F)) << 6U) + (uint16_t)(FileBuffer.get()[Index] & 0x3F);
+					SingleText = ((static_cast<uint16_t>(FileBuffer.get()[Index] & 0x1F)) << 6U) + static_cast<uint16_t>(FileBuffer.get()[Index] & 0x3F);
 
 				//Next line format
 					if (SingleText == UNICODE_NEXT_LINE)
@@ -195,15 +198,15 @@ bool ReadText(
 		{
 			for (Index = 0;Index < ReadLength;Index += sizeof(uint16_t))
 			{
-				auto SingleText = (uint16_t *)(FileBuffer.get() + Index);
+				auto SingleText = reinterpret_cast<uint16_t *>(FileBuffer.get() + Index);
 
 			//Endian
 			#if BYTE_ORDER == LITTLE_ENDIAN
 				if (Encoding == CODEPAGE_UTF_16_BE)
-					(*SingleText) = ntoh16_Force(*SingleText);
+					*SingleText = ntoh16_Force(*SingleText);
 			#else
 				if (Encoding == CODEPAGE_UTF_16_LE)
-					(*SingleText) = ntoh16_Force(*SingleText);
+					*SingleText = ntoh16_Force(*SingleText);
 			#endif
 			//Next line format
 				if (*SingleText == ASCII_CR)
@@ -228,7 +231,7 @@ bool ReadText(
 		{
 			for (Index = 0;Index < ReadLength;Index += sizeof(uint32_t))
 			{
-				auto SingleText = (uint32_t *)(FileBuffer.get() + Index);
+				auto SingleText = reinterpret_cast<uint32_t *>(FileBuffer.get() + Index);
 
 			//Endian
 			#if BYTE_ORDER == LITTLE_ENDIAN
@@ -260,21 +263,21 @@ bool ReadText(
 		else {
 			switch (InputType)
 			{
-				case READ_TEXT_HOSTS: //ReadHosts
+				case READ_TEXT_TYPE::HOSTS: //ReadHosts
 				{
-					PrintError(LOG_LEVEL_2, LOG_ERROR_PARAMETER, L"Text encoding error", 0, FileList_Hosts.at(FileIndex).FileName.c_str(), 0);
+					PrintError(LOG_LEVEL_TYPE::LEVEL_2, LOG_ERROR_TYPE::PARAMETER, L"Text encoding error", 0, FileList_Hosts.at(FileIndex).FileName.c_str(), 0);
 				}break;
-				case READ_TEXT_IPFILTER: //ReadIPFilter
+				case READ_TEXT_TYPE::IPFILTER: //ReadIPFilter
 				{
-					PrintError(LOG_LEVEL_2, LOG_ERROR_PARAMETER, L"Text encoding error", 0, FileList_IPFilter.at(FileIndex).FileName.c_str(), 0);
+					PrintError(LOG_LEVEL_TYPE::LEVEL_2, LOG_ERROR_TYPE::PARAMETER, L"Text encoding error", 0, FileList_IPFilter.at(FileIndex).FileName.c_str(), 0);
 				}break;
-				case READ_TEXT_PARAMETER_NORMAL: //ReadParameter
+				case READ_TEXT_TYPE::PARAMETER_NORMAL: //ReadParameter
 				{
-					PrintError(LOG_LEVEL_2, LOG_ERROR_PARAMETER, L"Text encoding error", 0, FileList_Config.at(FileIndex).FileName.c_str(), 0);
+					PrintError(LOG_LEVEL_TYPE::LEVEL_2, LOG_ERROR_TYPE::PARAMETER, L"Text encoding error", 0, FileList_Config.at(FileIndex).FileName.c_str(), 0);
 				}break;
-				case READ_TEXT_PARAMETER_MONITOR: //ReadParameter(Monitor mode)
+				case READ_TEXT_TYPE::PARAMETER_MONITOR: //ReadParameter(Monitor mode)
 				{
-					PrintError(LOG_LEVEL_2, LOG_ERROR_PARAMETER, L"Text encoding error", 0, FileList_Config.at(FileIndex).FileName.c_str(), 0);
+					PrintError(LOG_LEVEL_TYPE::LEVEL_2, LOG_ERROR_TYPE::PARAMETER, L"Text encoding error", 0, FileList_Config.at(FileIndex).FileName.c_str(), 0);
 				}break;
 			}
 
@@ -286,7 +289,7 @@ bool ReadText(
 		{
 			if (FileBuffer.get()[Index] > 0)
 			{
-				TextBuffer.get()[strnlen_s((const char *)TextBuffer.get(), FILE_BUFFER_SIZE)] = FileBuffer.get()[Index];
+				TextBuffer.get()[strnlen_s(reinterpret_cast<const char *>(TextBuffer.get()), FILE_BUFFER_SIZE)] = FileBuffer.get()[Index];
 
 			//Mark next line format.
 				if (!NewLinePoint && FileBuffer.get()[Index] == ASCII_LF)
@@ -301,21 +304,21 @@ bool ReadText(
 		{
 			switch (InputType)
 			{
-				case READ_TEXT_HOSTS: //ReadHosts
+				case READ_TEXT_TYPE::HOSTS: //ReadHosts
 				{
-					PrintError(LOG_LEVEL_2, LOG_ERROR_HOSTS, L"Data of a line is too long", 0, FileList_Hosts.at(FileIndex).FileName.c_str(), Line);
+					PrintError(LOG_LEVEL_TYPE::LEVEL_2, LOG_ERROR_TYPE::HOSTS, L"Data of a line is too long", 0, FileList_Hosts.at(FileIndex).FileName.c_str(), Line);
 				}break;
-				case READ_TEXT_IPFILTER: //ReadIPFilter
+				case READ_TEXT_TYPE::IPFILTER: //ReadIPFilter
 				{
-					PrintError(LOG_LEVEL_2, LOG_ERROR_IPFILTER, L"Data of a line is too long", 0, FileList_IPFilter.at(FileIndex).FileName.c_str(), Line);
+					PrintError(LOG_LEVEL_TYPE::LEVEL_2, LOG_ERROR_TYPE::IPFILTER, L"Data of a line is too long", 0, FileList_IPFilter.at(FileIndex).FileName.c_str(), Line);
 				}break;
-				case READ_TEXT_PARAMETER_NORMAL: //ReadParameter
+				case READ_TEXT_TYPE::PARAMETER_NORMAL: //ReadParameter
 				{
-					PrintError(LOG_LEVEL_2, LOG_ERROR_PARAMETER, L"Data of a line is too long", 0, FileList_Config.at(FileIndex).FileName.c_str(), Line);
+					PrintError(LOG_LEVEL_TYPE::LEVEL_2, LOG_ERROR_TYPE::PARAMETER, L"Data of a line is too long", 0, FileList_Config.at(FileIndex).FileName.c_str(), Line);
 				}break;
-				case READ_TEXT_PARAMETER_MONITOR: //ReadParameter(Monitor mode)
+				case READ_TEXT_TYPE::PARAMETER_MONITOR: //ReadParameter(Monitor mode)
 				{
-					PrintError(LOG_LEVEL_2, LOG_ERROR_PARAMETER, L"Data of a line is too long", 0, FileList_Config.at(FileIndex).FileName.c_str(), Line);
+					PrintError(LOG_LEVEL_TYPE::LEVEL_2, LOG_ERROR_TYPE::PARAMETER, L"Data of a line is too long", 0, FileList_Config.at(FileIndex).FileName.c_str(), Line);
 				}break;
 			}
 
@@ -326,10 +329,10 @@ bool ReadText(
 		}
 
 	//Read data.
-		for (Index = 0;Index < strnlen_s((const char *)TextBuffer.get(), FILE_BUFFER_SIZE);++Index)
+		for (Index = 0;Index < strnlen_s(reinterpret_cast<const char *>(TextBuffer.get()), FILE_BUFFER_SIZE);++Index)
 		{
 		//New line
-			if (TextBuffer.get()[Index] == ASCII_LF || (Index + 1U == strnlen_s((const char *)TextBuffer.get(), FILE_BUFFER_SIZE) && feof((FILE *)FileHandle)))
+			if (TextBuffer.get()[Index] == ASCII_LF || (Index + 1U == strnlen_s(reinterpret_cast<const char *>(TextBuffer.get()), FILE_BUFFER_SIZE) && feof(const_cast<FILE *>(FileHandle))))
 			{
 				++Line;
 
@@ -338,20 +341,20 @@ bool ReadText(
 				{
 					switch (InputType)
 					{
-						case READ_TEXT_HOSTS: //ReadHosts
+						case READ_TEXT_TYPE::HOSTS: //ReadHosts
 						{
-							ReadHostsData(TextData, FileIndex, Line, LabelType, IsStopLabel);
+							ReadHostsData(TextData, FileIndex, Line, LabelType_Hosts, IsStopLabel);
 						}break;
-						case READ_TEXT_IPFILTER: //ReadIPFilter
+						case READ_TEXT_TYPE::IPFILTER: //ReadIPFilter
 						{
-							ReadIPFilterData(TextData, FileIndex, Line, LabelType, IsStopLabel);
+							ReadIPFilterData(TextData, FileIndex, Line, LabelType_IPFilter, IsStopLabel);
 						}break;
-						case READ_TEXT_PARAMETER_NORMAL: //ReadParameter
+						case READ_TEXT_TYPE::PARAMETER_NORMAL: //ReadParameter
 						{
 							if (!ReadParameterData(TextData, FileIndex, true, Line))
 								return false;
 						}break;
-						case READ_TEXT_PARAMETER_MONITOR: //ReadParameter(Monitor mode)
+						case READ_TEXT_TYPE::PARAMETER_MONITOR: //ReadParameter(Monitor mode)
 						{
 							if (!ReadParameterData(TextData, FileIndex, false, Line))
 								return false;
@@ -360,7 +363,7 @@ bool ReadText(
 				}
 
 			//Next step
-				if (Index + 1U == strnlen_s((const char *)TextBuffer.get(), FILE_BUFFER_SIZE) && feof((FILE *)FileHandle))
+				if (Index + 1U == strnlen_s(reinterpret_cast<const char *>(TextBuffer.get()), FILE_BUFFER_SIZE) && feof(const_cast<FILE *>(FileHandle)))
 					return true;
 				else 
 					TextData.clear();
@@ -385,9 +388,9 @@ bool ReadParameter(
 //Create file list.
 	if (IsFirstRead)
 	{
-		const wchar_t *WCS_ConfigFileNameList[]CONFIG_FILE_NAME_LIST;
+		const wchar_t *WCS_ConfigFileNameList[] = CONFIG_FILE_NAME_LIST;
 	#if (defined(PLATFORM_LINUX) || defined(PLATFORM_MACOS))
-		const char *MBS_ConfigFileNameList[]CONFIG_FILE_NAME_LIST_MBS;
+		const char *MBS_ConfigFileNameList[] = CONFIG_FILE_NAME_LIST_MBS;
 	#endif
 
 		FILE_DATA ConfigFileTemp;
@@ -431,11 +434,9 @@ bool ReadParameter(
 			//Check all configuration files.
 				if (FileIndex + 1U == FileList_Config.size())
 				{
-					PrintError(LOG_LEVEL_1, LOG_ERROR_PARAMETER, L"Cannot open any configuration files", 0, nullptr, 0);
+					PrintError(LOG_LEVEL_TYPE::LEVEL_1, LOG_ERROR_TYPE::PARAMETER, L"Cannot open any configuration files", 0, nullptr, 0);
 					return false;
 				}
-
-				continue;
 			}
 			else {
 				break;
@@ -453,16 +454,16 @@ bool ReadParameter(
 			memset(&ConfigFileSize, 0, sizeof(ConfigFileSize));
 			ConfigFileSize.HighPart = FileAttributeData.nFileSizeHigh;
 			ConfigFileSize.LowPart = FileAttributeData.nFileSizeLow;
-			if (ConfigFileSize.QuadPart < 0 || (uint64_t)ConfigFileSize.QuadPart >= FILE_READING_MAXSIZE)
+			if (ConfigFileSize.QuadPart < 0 || static_cast<uint64_t>(ConfigFileSize.QuadPart) >= FILE_READING_MAXSIZE)
 			{
-				PrintError(LOG_LEVEL_3, LOG_ERROR_PARAMETER, L"Configuration file is too large", 0, FileList_Config.at(FileIndex).FileName.c_str(), 0);
+				PrintError(LOG_LEVEL_TYPE::LEVEL_3, LOG_ERROR_TYPE::PARAMETER, L"Configuration file is too large", 0, FileList_Config.at(FileIndex).FileName.c_str(), 0);
 				return false;
 			}
 		}
 	#elif (defined(PLATFORM_LINUX) || defined(PLATFORM_MACOS))
-		if (stat(FileList_Config.at(FileIndex).MBS_FileName.c_str(), &FileStatData) == 0 && FileStatData.st_size >= (off_t)FILE_READING_MAXSIZE)
+		if (stat(FileList_Config.at(FileIndex).MBS_FileName.c_str(), &FileStatData) == 0 && FileStatData.st_size >= static_cast<off_t>(FILE_READING_MAXSIZE))
 		{
-			PrintError(LOG_LEVEL_3, LOG_ERROR_PARAMETER, L"Configuration file is too large", 0, FileList_Config.at(FileIndex).FileName.c_str(), 0);
+			PrintError(LOG_LEVEL_TYPE::LEVEL_3, LOG_ERROR_TYPE::PARAMETER, L"Configuration file is too large", 0, FileList_Config.at(FileIndex).FileName.c_str(), 0);
 			return false;
 		}
 	#endif
@@ -470,7 +471,7 @@ bool ReadParameter(
 	//Read data.
 		if (FileHandle != nullptr)
 		{
-			if (!ReadText(FileHandle, READ_TEXT_PARAMETER_NORMAL, FileIndex))
+			if (!ReadText(FileHandle, READ_TEXT_TYPE::PARAMETER_NORMAL, FileIndex))
 			{
 				fclose(FileHandle);
 				return false;
@@ -479,7 +480,7 @@ bool ReadParameter(
 			fclose(FileHandle);
 		}
 		else {
-			PrintError(LOG_LEVEL_1, LOG_ERROR_PARAMETER, L"Cannot open any configuration files", 0, nullptr, 0);
+			PrintError(LOG_LEVEL_TYPE::LEVEL_1, LOG_ERROR_TYPE::PARAMETER, L"Cannot open any configuration files", 0, nullptr, 0);
 			return false;
 		}
 
@@ -502,9 +503,7 @@ bool ReadParameter(
 				{
 				//Check all configuration files.
 					if (FileIndex + 1U == FileList_Config.size())
-						PrintError(LOG_LEVEL_1, LOG_ERROR_PARAMETER, L"Cannot open any configuration files", 0, nullptr, 0);
-
-					continue;
+						PrintError(LOG_LEVEL_TYPE::LEVEL_1, LOG_ERROR_TYPE::PARAMETER, L"Cannot open any configuration files", 0, nullptr, 0);
 				}
 				else {
 					fclose(FileHandle);
@@ -550,12 +549,12 @@ bool ReadParameter(
 			#if defined(PLATFORM_WIN)
 				FileSizeData.HighPart = FileAttributeData.nFileSizeHigh;
 				FileSizeData.LowPart = FileAttributeData.nFileSizeLow;
-				if (FileSizeData.QuadPart < 0 || (uint64_t)FileSizeData.QuadPart >= FILE_READING_MAXSIZE)
+				if (FileSizeData.QuadPart < 0 || static_cast<uint64_t>(FileSizeData.QuadPart) >= FILE_READING_MAXSIZE)
 			#elif (defined(PLATFORM_LINUX) || defined(PLATFORM_MACOS))
-				if (FileStatData.st_size >= (off_t)FILE_READING_MAXSIZE)
+				if (FileStatData.st_size >= static_cast<off_t>(FILE_READING_MAXSIZE))
 			#endif
 				{
-					PrintError(LOG_LEVEL_3, LOG_ERROR_PARAMETER, L"Configuration file size is too large", 0, FileList_Config.at(FileIndex).FileName.c_str(), 0);
+					PrintError(LOG_LEVEL_TYPE::LEVEL_3, LOG_ERROR_TYPE::PARAMETER, L"Configuration file size is too large", 0, FileList_Config.at(FileIndex).FileName.c_str(), 0);
 
 				#if defined(PLATFORM_WIN)
 					memset(&FileAttributeData, 0, sizeof(FileAttributeData));
@@ -603,7 +602,7 @@ bool ReadParameter(
 							if (!InnerIsFirstRead)
 							{
 							//Read data.
-								if (ReadText(FileHandle, READ_TEXT_PARAMETER_MONITOR, FileIndex))
+								if (ReadText(FileHandle, READ_TEXT_TYPE::PARAMETER_MONITOR, FileIndex))
 								{
 								//Copy to global list.
 									if (Parameter_CheckSetting(false, FileIndex))
@@ -653,7 +652,7 @@ bool ReadParameter(
 	}
 
 //Monitor terminated
-	PrintError(LOG_LEVEL_2, LOG_ERROR_SYSTEM, L"Read Parameter module Monitor terminated", 0, nullptr, 0);
+	PrintError(LOG_LEVEL_TYPE::LEVEL_2, LOG_ERROR_TYPE::SYSTEM, L"Read Parameter module Monitor terminated", 0, nullptr, 0);
 	return false;
 }
 
@@ -669,8 +668,6 @@ void ReadIPFilter(
 		FILE_DATA FileDataTemp;
 		for (FileIndex = 0;FileIndex < GlobalRunningStatus.FileList_IPFilter->size();++FileIndex)
 		{
-			FileDataTemp.ModificationTime = 0;
-
 		//Add to global list.
 			FileDataTemp.FileName = GlobalRunningStatus.Path_Global->at(Index);
 			FileDataTemp.FileName.append(GlobalRunningStatus.FileList_IPFilter->at(FileIndex));
@@ -723,19 +720,19 @@ void ReadIPFilter(
 					IsFileModified = true;
 				FileList_IPFilter.at(FileIndex).ModificationTime = 0;
 
-				ClearModificatingListData(READ_TEXT_IPFILTER, FileIndex);
+				ClearModificatingListData(READ_TEXT_TYPE::IPFILTER, FileIndex);
 			}
 			else {
 			//Check whole file size.
 			#if defined(PLATFORM_WIN)
 				FileSizeData.HighPart = FileAttributeData.nFileSizeHigh;
 				FileSizeData.LowPart = FileAttributeData.nFileSizeLow;
-				if (FileSizeData.QuadPart < 0 || (uint64_t)FileSizeData.QuadPart >= FILE_READING_MAXSIZE)
+				if (FileSizeData.QuadPart < 0 || static_cast<uint64_t>(FileSizeData.QuadPart) >= FILE_READING_MAXSIZE)
 			#elif (defined(PLATFORM_LINUX) || defined(PLATFORM_MACOS))
-				if (FileStatData.st_size >= (off_t)FILE_READING_MAXSIZE)
+				if (FileStatData.st_size >= static_cast<off_t>(FILE_READING_MAXSIZE))
 			#endif
 				{
-					PrintError(LOG_LEVEL_3, LOG_ERROR_PARAMETER, L"IPFilter file size is too large", 0, FileList_IPFilter.at(FileIndex).FileName.c_str(), 0);
+					PrintError(LOG_LEVEL_TYPE::LEVEL_3, LOG_ERROR_TYPE::PARAMETER, L"IPFilter file size is too large", 0, FileList_IPFilter.at(FileIndex).FileName.c_str(), 0);
 
 				#if defined(PLATFORM_WIN)
 					memset(&FileAttributeData, 0, sizeof(FileAttributeData));
@@ -747,7 +744,7 @@ void ReadIPFilter(
 						IsFileModified = true;
 					FileList_IPFilter.at(FileIndex).ModificationTime = 0;
 
-					ClearModificatingListData(READ_TEXT_IPFILTER, FileIndex);
+					ClearModificatingListData(READ_TEXT_TYPE::IPFILTER, FileIndex);
 					continue;
 				}
 
@@ -767,7 +764,7 @@ void ReadIPFilter(
 					FileList_IPFilter.at(FileIndex).ModificationTime = FileStatData.st_mtime;
 					memset(&FileStatData, 0, sizeof(FileStatData));
 			#endif
-					ClearModificatingListData(READ_TEXT_IPFILTER, FileIndex);
+					ClearModificatingListData(READ_TEXT_TYPE::IPFILTER, FileIndex);
 					IsFileModified = true;
 
 				//Read file.
@@ -804,7 +801,7 @@ void ReadIPFilter(
 							}
 
 						//Read data.
-							ReadText(FileHandle, READ_TEXT_IPFILTER, FileIndex);
+							ReadText(FileHandle, READ_TEXT_TYPE::IPFILTER, FileIndex);
 							fclose(FileHandle);
 							FileHandle = nullptr;
 						}
@@ -845,7 +842,7 @@ void ReadIPFilter(
 	}
 
 //Monitor terminated
-	PrintError(LOG_LEVEL_2, LOG_ERROR_SYSTEM, L"Read IPFilter module Monitor terminated", 0, nullptr, 0);
+	PrintError(LOG_LEVEL_TYPE::LEVEL_2, LOG_ERROR_TYPE::SYSTEM, L"Read IPFilter module Monitor terminated", 0, nullptr, 0);
 	return;
 }
 
@@ -861,8 +858,6 @@ void ReadHosts(
 		FILE_DATA FileDataTemp;
 		for (FileIndex = 0;FileIndex < GlobalRunningStatus.FileList_Hosts->size();++FileIndex)
 		{
-			FileDataTemp.ModificationTime = 0;
-
 		//Add to global list.
 			FileDataTemp.FileName = GlobalRunningStatus.Path_Global->at(Index);
 			FileDataTemp.FileName.append(GlobalRunningStatus.FileList_Hosts->at(FileIndex));
@@ -915,19 +910,19 @@ void ReadHosts(
 					IsFileModified = true;
 				FileList_Hosts.at(FileIndex).ModificationTime = 0;
 
-				ClearModificatingListData(READ_TEXT_HOSTS, FileIndex);
+				ClearModificatingListData(READ_TEXT_TYPE::HOSTS, FileIndex);
 			}
 			else {
 			//Check whole file size.
 			#if defined(PLATFORM_WIN)
 				FileSizeData.HighPart = FileAttributeData.nFileSizeHigh;
 				FileSizeData.LowPart = FileAttributeData.nFileSizeLow;
-				if (FileSizeData.QuadPart < 0 || (uint64_t)FileSizeData.QuadPart >= FILE_READING_MAXSIZE)
+				if (FileSizeData.QuadPart < 0 || static_cast<uint64_t>(FileSizeData.QuadPart) >= FILE_READING_MAXSIZE)
 			#elif (defined(PLATFORM_LINUX) || defined(PLATFORM_MACOS))
-				if (FileStatData.st_size >= (off_t)FILE_READING_MAXSIZE)
+				if (FileStatData.st_size >= static_cast<off_t>(FILE_READING_MAXSIZE))
 			#endif
 				{
-					PrintError(LOG_LEVEL_3, LOG_ERROR_PARAMETER, L"Hosts file size is too large", 0, FileList_Hosts.at(FileIndex).FileName.c_str(), 0);
+					PrintError(LOG_LEVEL_TYPE::LEVEL_3, LOG_ERROR_TYPE::PARAMETER, L"Hosts file size is too large", 0, FileList_Hosts.at(FileIndex).FileName.c_str(), 0);
 
 				#if defined(PLATFORM_WIN)
 					memset(&FileAttributeData, 0, sizeof(FileAttributeData));
@@ -939,7 +934,7 @@ void ReadHosts(
 						IsFileModified = true;
 					FileList_Hosts.at(FileIndex).ModificationTime = 0;
 
-					ClearModificatingListData(READ_TEXT_HOSTS, FileIndex);
+					ClearModificatingListData(READ_TEXT_TYPE::HOSTS, FileIndex);
 					continue;
 				}
 
@@ -959,7 +954,7 @@ void ReadHosts(
 					FileList_Hosts.at(FileIndex).ModificationTime = FileStatData.st_mtime;
 					memset(&FileStatData, 0, sizeof(FileStatData));
 			#endif
-					ClearModificatingListData(READ_TEXT_HOSTS, FileIndex);
+					ClearModificatingListData(READ_TEXT_TYPE::HOSTS, FileIndex);
 					IsFileModified = true;
 
 				//Read file.
@@ -996,7 +991,7 @@ void ReadHosts(
 							}
 
 						//Read data.
-							ReadText(FileHandle, READ_TEXT_HOSTS, FileIndex);
+							ReadText(FileHandle, READ_TEXT_TYPE::HOSTS, FileIndex);
 							fclose(FileHandle);
 							FileHandle = nullptr;
 						}
@@ -1037,17 +1032,17 @@ void ReadHosts(
 	}
 
 //Monitor terminated
-	PrintError(LOG_LEVEL_2, LOG_ERROR_SYSTEM, L"Read Hosts module Monitor terminated", 0, nullptr, 0);
+	PrintError(LOG_LEVEL_TYPE::LEVEL_2, LOG_ERROR_TYPE::SYSTEM, L"Read Hosts module Monitor terminated", 0, nullptr, 0);
 	return;
 }
 
 //Clear data in list
 void ClearModificatingListData(
-	const size_t ClearType, 
+	const READ_TEXT_TYPE ClearType, 
 	const size_t FileIndex)
 {
 //Clear Hosts file set.
-	if (ClearType == READ_TEXT_HOSTS)
+	if (ClearType == READ_TEXT_TYPE::HOSTS)
 	{
 		for (auto HostsFileSetIter = HostsFileSetModificating->begin();HostsFileSetIter != HostsFileSetModificating->end();++HostsFileSetIter)
 		{
@@ -1059,7 +1054,7 @@ void ClearModificatingListData(
 		}
 	}
 //Clear IPFilter file set.
-	else if (ClearType == READ_TEXT_IPFILTER)
+	else if (ClearType == READ_TEXT_TYPE::IPFILTER)
 	{
 		for (auto IPFilterFileSetIter = IPFilterFileSetModificating->begin();IPFilterFileSetIter != IPFilterFileSetModificating->end();++IPFilterFileSetIter)
 		{
@@ -1082,7 +1077,7 @@ void GetParameterListData(
 	const size_t Length, 
 	const uint8_t SeparatedSign, 
 	const bool IsCaseConvert, 
-	const bool KeepEmptyItem)
+	const bool IsKeepEmptyItem)
 {
 //Initialization
 	std::string NameString;
@@ -1098,7 +1093,7 @@ void GetParameterListData(
 				NameString.append(Data, Index, 1U);
 			if (NameString.empty())
 			{
-				if (KeepEmptyItem)
+				if (IsKeepEmptyItem)
 					ListData.push_back(NameString);
 
 				break;
@@ -1109,7 +1104,7 @@ void GetParameterListData(
 
 			//Add char to end.
 				ListData.push_back(NameString);
-				if (KeepEmptyItem && Data.at(Index) == SeparatedSign)
+				if (IsKeepEmptyItem && Data.at(Index) == SeparatedSign)
 				{
 					NameString.clear();
 					ListData.push_back(NameString);
@@ -1130,7 +1125,7 @@ void GetParameterListData(
 				ListData.push_back(NameString);
 				NameString.clear();
 			}
-			else if (KeepEmptyItem)
+			else if (IsKeepEmptyItem)
 			{
 				ListData.push_back(NameString);
 				NameString.clear();

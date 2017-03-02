@@ -1,6 +1,6 @@
 ﻿// This code is part of Pcap_DNSProxy
 // A local DNS server based on WinPcap and LibPcap
-// Copyright (C) 2012-2016 Chengr28
+// Copyright (C) 2012-2017 Chengr28
 // 
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License
@@ -459,7 +459,7 @@
 	#define BIG_ENDIAN                 __BIG_ENDIAN
 	#define BYTE_ORDER                 __BYTE_ORDER
 
-//Code definitions
+//Winsock definitions
 	#define WINSOCK_VERSION_LOW_BYTE    2                           //Low byte of Winsock version 2.2
 	#define WINSOCK_VERSION_HIGH_BYTE   2                           //High byte of Winsock version 2.2
 
@@ -599,7 +599,6 @@
 	#define SOCKET_ERROR             (-1)
 	#define TRUE                     1U
 	#define RETURN_ERROR             (-1)
-	#define MAX_PATH                 PATH_MAX
 	#define SD_BOTH                  SHUT_RDWR
 	#define SD_RECV                  SHUT_RD
 	#define SD_SEND                  SHUT_WR
@@ -608,15 +607,9 @@
 	#define WSAENETUNREACH           ENETUNREACH
 	#define WSAENOTSOCK              ENOTSOCK
 	#define WSAETIMEDOUT             ETIMEDOUT
-	typedef sockaddr                 *PSOCKADDR;
-	typedef sockaddr_in              *PSOCKADDR_IN;
-	typedef sockaddr_in6             *PSOCKADDR_IN6;
 
 //Function definitions(Part 1)
 	#define closesocket                                                  close
-	#if defined(PLATFORM_LINUX)
-		#define _fcloseall                                                   fcloseall
-	#endif
 	#define fwprintf_s                                                   fwprintf
 	#define strnlen_s                                                    strnlen
 	#define vfwprintf_s                                                  vfwprintf

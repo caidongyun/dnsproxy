@@ -127,15 +127,15 @@ Error.log 詳細錯誤報表，錯誤報表一共有7大類型：
   * Address Prefix Block format error - 帶前置長度的位址塊格式錯誤：請檢查位址塊的格式
   * IPv4 prefix error - IPv4 網路首碼長度錯誤：IPv4 網路首碼的長度介乎與 1-32
   * IPv6 prefix error - IPv6 網路首碼長度錯誤：IPv6 網路首碼的長度介乎與 1-128
-  * Pcap Capture error - 抓包模塊參數錯誤：請檢查相關參數的使用要求說明
   * Direct Request error - 直連模塊參數錯誤：請檢查相關參數的使用要求說明
   * Local machine listening port error - 本地監聽埠錯誤：請檢查本地監聽埠的值，可適用範圍為 1 - 65535
   * IPFilter Level error - IPFilter 過濾級別錯誤：請檢查過濾級別的值，可適用範圍為 1 - 65535
   * DNS Cache error - DNS 緩存配置錯誤：請檢查緩存的參數
+  * Default TTL error - 預設 TTL 配置錯誤：請檢查緩存的參數
   * DNS target error - DNS 目標伺服器配置錯誤：請檢查 DNS 伺服器的位址
   * Local request options error - 境內請求參數錯誤：請檢查境內伺服器是否可用，參見 ReadMe 文檔中對這3個參數的介紹
   * DNS Record type error - DNS 記錄參數錯誤：請檢查 Accept Type 的值是否符合要求
-  * Hop Limit Fluctuations error - Hop Limit 或 TTL 可接受範圍錯誤：請檢查範圍的值
+  * Hop Limits Fluctuation error - Hop Limits 或 TTL 可接受範圍錯誤：請檢查範圍的值
   * Alternate Multiple request error - 主要備用或多個伺服器下同時請求參數錯誤：請確認所有伺服器的資訊
   * IPv4 total request number error - IPv4 請求總次數限制錯誤：填入主要/待命伺服器的數量
   * Multiple Request Times = 總請求的數值，此數值不能超過 64
@@ -286,6 +286,7 @@ Error.log 詳細錯誤報表，錯誤報表一共有7大類型：
   * DNSSEC Request require EDNS Label - 開啟 DNSSEC 請求時必須開啟 EDNS 標籤請求功能
   * EDNS Client Subnet require EDNS Label - 開啟 EDNS Client Subnet 請求時必須開啟 EDNS 標籤請求功能
   * Compression Pointer Mutation must disable EDNS Label - 使用 Compression Pointer Mutation 時不能開啟 EDNS 標籤請求功能，兩者並不相容
+  * EDNS Label require at least one of process - 開啟 EDNS Label 請求時必須指定至少一個請求過程
   * DNSSEC Validation require EDNS Label and DNSSEC Request - 開啟 DNSSEC Validation 請求時必須開啟 EDNS 標籤請求和 DNSSEC 請求功能
   * DNSSEC Force Validation require EDNS Label, DNSSEC Request and DNSSEC Validation - 開啟 DNSSEC Force Validation 請求時必須開啟 EDNS 標籤請求、DNSSEC 請求和 DNSSEC Validation 驗證功能
   * DNSCurve Payload Size must longer than traditional DNS packet minimum supported size(512 bytes) - DNSCurve 協定載荷長度過短：實現 DNS 協定必須支援長度超過 512 bytes 的資料包

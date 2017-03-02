@@ -1,6 +1,6 @@
 ﻿// This code is part of Pcap_DNSProxy
 // A local DNS server based on WinPcap and LibPcap
-// Copyright (C) 2012-2016 Chengr28
+// Copyright (C) 2012-2017 Chengr28
 // 
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License
@@ -100,13 +100,13 @@ void ReadHosts(
 bool DNSCurveVerifyKeypair(
 	const uint8_t * const PublicKey, 
 	const uint8_t * const SecretKey);
-PDNSCURVE_SERVER_DATA DNSCurveSelectSignatureTargetSocket(
+DNSCURVE_SERVER_DATA *DNSCurveSelectSignatureTargetSocket(
 	const uint16_t Protocol, 
 	const bool IsAlternate, 
-	size_t &ServerType, 
+	DNSCURVE_SERVER_TYPE &ServerType, 
 	std::vector<SOCKET_DATA> &SocketDataList);
 bool DNSCurvePacketTargetSetting(
-	const size_t ServerType, 
+	const DNSCURVE_SERVER_TYPE ServerType, 
 	DNSCURVE_SERVER_DATA ** const PacketTarget);
 bool DNSCurvePrecomputationKeySetting(
 	uint8_t * const PrecomputationKey, 
@@ -122,9 +122,9 @@ void DNSCurveSocketPrecomputation(
 	DNSCURVE_SERVER_DATA ** const PacketTarget, 
 	std::vector<SOCKET_DATA> &SocketDataList, 
 	std::vector<DNSCURVE_SOCKET_SELECTING_TABLE> &SocketSelectingList, 
-	std::shared_ptr<uint8_t> &SendBuffer, 
+	std::unique_ptr<uint8_t[]> &SendBuffer, 
 	size_t &DataLength, 
-	std::shared_ptr<uint8_t> &Alternate_SendBuffer, 
+	std::unique_ptr<uint8_t[]> &Alternate_SendBuffer, 
 	size_t &Alternate_DataLength);
 size_t DNSCurvePacketEncryption(
 	const uint16_t Protocol, 
@@ -143,7 +143,7 @@ ssize_t DNSCurvePacketDecryption(
 	const ssize_t Length);
 bool DNSCruveGetSignatureData(
 	const uint8_t * const Buffer, 
-	const size_t ServerType);
+	const DNSCURVE_SERVER_TYPE ServerType);
 
 //DNSCurveRequest.h
 void DNSCurveInit(
@@ -192,17 +192,18 @@ bool FirewallTest(
 #endif
 bool SocketSetting(
 	const SYSTEM_SOCKET Socket, 
-	const size_t SettingType, 
+	const SOCKET_SETTING_TYPE SettingType, 
 	const bool IsPrintError, 
 	void * const DataPointer);
 size_t SelectTargetSocketSingle(
-	const size_t RequestType, 
+	const REQUEST_PROCESS_TYPE RequestType, 
 	const uint16_t Protocol, 
 	SOCKET_DATA * const TargetSocketData, 
-	void ** const DNSCurvePacketTarget, 
 	bool ** const IsAlternate, 
 	size_t ** const AlternateTimeoutTimes, 
-	const ADDRESS_UNION_DATA * const SpecifieTargetData);
+	const ADDRESS_UNION_DATA * const SpecifieTargetData, 
+	void * DNSCurvePacketServerType, 
+	void ** const DNSCurvePacketTarget);
 bool SelectTargetSocketMultiple(
 	const uint16_t Protocol, 
 	std::vector<SOCKET_DATA> &TargetSocketDataList);
@@ -214,7 +215,7 @@ size_t SocketConnecting(
 	const uint8_t * const OriginalSend, 
 	const size_t SendSize);
 ssize_t SocketSelectingOnce(
-	const size_t RequestType, 
+	const REQUEST_PROCESS_TYPE RequestType, 
 	const uint16_t Protocol, 
 	std::vector<SOCKET_DATA> &SocketDataList, 
 	void * const OriginalDNSCurveSocketSelectingList, 
@@ -224,7 +225,7 @@ ssize_t SocketSelectingOnce(
 	const size_t RecvSize, 
 	ssize_t * const ErrorCode);
 size_t SocketSelectingSerial(
-	const size_t RequestType, 
+	const REQUEST_PROCESS_TYPE RequestType, 
 	const uint16_t Protocol, 
 	std::vector<SOCKET_DATA> &SocketDataList, 
 	std::vector<SOCKET_SELECTING_SERIAL_DATA> &SocketSelectingDataList, 
@@ -282,8 +283,8 @@ size_t MakeCompressionPointerMutation(
 
 //PrintLog.h
 bool PrintError(
-	const size_t ErrorLevel, 
-	const size_t ErrorType, 
+	const LOG_LEVEL_TYPE ErrorLevel, 
+	const LOG_ERROR_TYPE ErrorType, 
 	const wchar_t * const Message, 
 	const ssize_t ErrorCode, 
 	const wchar_t * const FileName, 
@@ -294,16 +295,16 @@ void PrintToScreen(
 	...
 );
 void ErrorCodeToMessage(
-	const size_t ErrorType, 
+	const LOG_ERROR_TYPE ErrorType, 
 	const ssize_t ErrorCode, 
 	std::wstring &Message);
 void ReadTextPrintLog(
-	const size_t InputType, 
+	const READ_TEXT_TYPE InputType, 
 	const size_t FileIndex, 
 	const size_t Line);
 #if defined(ENABLE_LIBSODIUM)
 void DNSCurvePrintLog(
-	const size_t ServerType, 
+	const DNSCURVE_SERVER_TYPE ServerType, 
 	std::wstring &Message);
 #endif
 
@@ -349,7 +350,7 @@ bool BinaryToAddressString(
 	void * const AddressString, 
 	const size_t StringSize, 
 	ssize_t * const ErrorCode);
-size_t AddressesComparing(
+ADDRESS_COMPARE_TYPE AddressesComparing(
 	const uint16_t Protocol, 
 	const void * const OriginalAddrBegin, 
 	const void * const OriginalAddrEnd);
@@ -366,31 +367,31 @@ bool CheckQueryData(
 	const size_t SendSize, 
 	const SOCKET_DATA &LocalSocketData);
 bool CheckConnectionStreamFin(
-	const size_t RequestType, 
+	const REQUEST_PROCESS_TYPE RequestType, 
 	const uint8_t * const Stream, 
 	const size_t Length);
 size_t CheckResponseData(
-	const size_t ResponseType, 
+	const REQUEST_PROCESS_TYPE ResponseType, 
 	uint8_t * const Buffer, 
 	const size_t Length, 
 	const size_t BufferSize, 
-	bool * const IsMarkHopLimit);
+	bool * const IsMarkHopLimits);
 
 //Proxy.h
 size_t SOCKS_TCP_Request(
 	const uint8_t * const OriginalSend, 
 	const size_t SendSize, 
-	std::shared_ptr<uint8_t> &OriginalRecv, 
+	std::unique_ptr<uint8_t[]> &OriginalRecv, 
 	size_t &RecvSize);
 size_t SOCKS_UDP_Request(
 	const uint8_t * const OriginalSend, 
 	const size_t SendSize, 
-	std::shared_ptr<uint8_t> &OriginalRecv, 
+	std::unique_ptr<uint8_t[]> &OriginalRecv, 
 	size_t &RecvSize);
 size_t HTTP_CONNECT_Request(
 	const uint8_t * const OriginalSend, 
 	const size_t SendSize, 
-	std::shared_ptr<uint8_t> &OriginalRecv, 
+	std::unique_ptr<uint8_t[]> &OriginalRecv, 
 	size_t &RecvSize);
 
 //Request.h
@@ -401,41 +402,41 @@ bool ICMP_TestRequest(
 	const uint16_t Protocol);
 #endif
 size_t TCP_RequestSingle(
-	const size_t RequestType, 
+	const REQUEST_PROCESS_TYPE RequestType, 
 	const uint8_t * const OriginalSend, 
 	const size_t SendSize, 
 	uint8_t * const OriginalRecv, 
 	const size_t RecvSize, 
 	const ADDRESS_UNION_DATA * const SpecifieTargetData);
 size_t TCP_RequestMultiple(
-	const size_t RequestType, 
+	const REQUEST_PROCESS_TYPE RequestType, 
 	const uint8_t * const OriginalSend, 
 	const size_t SendSize, 
 	uint8_t * const OriginalRecv, 
 	const size_t RecvSize);
 #if defined(ENABLE_PCAP)
 size_t UDP_RequestSingle(
-	const size_t RequestType, 
+	const REQUEST_PROCESS_TYPE RequestType, 
 	const uint16_t Protocol, 
 	const uint8_t * const OriginalSend, 
 	const size_t SendSize, 
 	const SOCKET_DATA * const LocalSocketData);
 size_t UDP_RequestMultiple(
-	const size_t RequestType, 
+	const REQUEST_PROCESS_TYPE RequestType, 
 	const uint16_t Protocol, 
 	const uint8_t * const OriginalSend, 
 	const size_t SendSize, 
 	const SOCKET_DATA * const LocalSocketData);
 #endif
 size_t UDP_CompleteRequestSingle(
-	const size_t RequestType, 
+	const REQUEST_PROCESS_TYPE RequestType, 
 	const uint8_t * const OriginalSend, 
 	const size_t SendSize, 
 	uint8_t * const OriginalRecv, 
 	const size_t RecvSize, 
 	const ADDRESS_UNION_DATA * const SpecifieTargetData);
 size_t UDP_CompleteRequestMultiple(
-	const size_t RequestType, 
+	const REQUEST_PROCESS_TYPE RequestType, 
 	const uint8_t * const OriginalSend, 
 	const size_t SendSize, 
 	uint8_t * const OriginalRecv, 
@@ -491,7 +492,7 @@ bool OpenSSL_BIO_Initializtion(
 bool OpenSSL_Handshake(
 	OPENSSL_CONTEXT_TABLE &OpenSSL_CTX);
 bool TLS_TransportSerial(
-	const size_t RequestType, 
+	const REQUEST_PROCESS_TYPE RequestType, 
 	const size_t PacketMinSize, 
 	OPENSSL_CONTEXT_TABLE &OpenSSL_CTX, 
 	std::vector<SOCKET_SELECTING_SERIAL_DATA> &SocketSelectingDataList);

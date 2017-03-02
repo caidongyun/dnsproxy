@@ -1,6 +1,6 @@
 ﻿// This code is part of Pcap_DNSProxy
 // A local DNS server based on WinPcap and LibPcap
-// Copyright (C) 2012-2016 Chengr28
+// Copyright (C) 2012-2017 Chengr28
 // 
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License
@@ -34,13 +34,14 @@ bool ReadCommand(
 #if defined(PLATFORM_WIN)
 	if (!FileNameInit(argv[0]))
 #elif (defined(PLATFORM_LINUX) || defined(PLATFORM_MACOS))
-	char FileName[PATH_MAX + 1U]{0};
-	if (getcwd(FileName, PATH_MAX) == nullptr)
+	std::unique_ptr<char[]> FileName(new char[PATH_MAX + PADDING_RESERVED_BYTES]());
+	memset(FileName.get(), 0, PATH_MAX + PADDING_RESERVED_BYTES);
+	if (getcwd(FileName.get(), PATH_MAX) == nullptr)
 	{
 		PrintToScreen(true, L"[System Error] Path initialization error.\n");
 		return false;
 	}
-	if (!FileNameInit(FileName))
+	if (!FileNameInit(FileName.get()))
 #endif
 		return false;
 
@@ -48,7 +49,7 @@ bool ReadCommand(
 	_set_errno(0);
 	if (setvbuf(stderr, nullptr, _IONBF, 0) != 0)
 	{
-		PrintError(LOG_LEVEL_1, LOG_ERROR_SYSTEM, L"Screen output buffer setting error", errno, nullptr, 0);
+		PrintError(LOG_LEVEL_TYPE::LEVEL_1, LOG_ERROR_TYPE::SYSTEM, L"Screen output buffer setting error", errno, nullptr, 0);
 		return false;
 	}
 
@@ -62,7 +63,7 @@ bool ReadCommand(
 		LOBYTE(WSAInitialization.wVersion) != WINSOCK_VERSION_LOW_BYTE || 
 		HIBYTE(WSAInitialization.wVersion) != WINSOCK_VERSION_HIGH_BYTE)
 	{
-		PrintError(LOG_LEVEL_1, LOG_ERROR_NETWORK, L"Winsock initialization error", WSAGetLastError(), nullptr, 0);
+		PrintError(LOG_LEVEL_TYPE::LEVEL_1, LOG_ERROR_TYPE::NETWORK, L"Winsock initialization error", WSAGetLastError(), nullptr, 0);
 		return false;
 	}
 	else {
@@ -71,7 +72,7 @@ bool ReadCommand(
 #endif
 
 //Read commands.
-	for (size_t Index = 1U;(int)Index < argc;++Index)
+	for (size_t Index = 1U;static_cast<int>(Index) < argc;++Index)
 	{
 	//Case insensitive
 	#if defined(PLATFORM_WIN)
@@ -85,25 +86,28 @@ bool ReadCommand(
 		if (InsensitiveString == COMMAND_LONG_SET_PATH || InsensitiveString == COMMAND_SHORT_SET_PATH)
 		{
 		//Commands check
-			if ((int)Index + 1 >= argc)
+			if (static_cast<int>(Index) + 1 >= argc)
 			{
-				PrintError(LOG_LEVEL_1, LOG_ERROR_SYSTEM, L"Commands error", 0, nullptr, 0);
+				PrintError(LOG_LEVEL_TYPE::LEVEL_1, LOG_ERROR_TYPE::SYSTEM, L"Commands error", 0, nullptr, 0);
 				return false;
 			}
 			else {
 				++Index;
 				Commands = argv[Index];
 
-			//Path check.
-				if (Commands.length() > MAX_PATH)
+			//Path and file name check.
+			//Path and file name size limit is removed, read https://msdn.microsoft.com/en-us/library/windows/desktop/aa365247(v=vs.85).aspx to get more details.
+			#if (defined(PLATFORM_LINUX) || defined(PLATFORM_MACOS))
+				if (Commands.length() >= PATH_MAX)
 				{
-					PrintError(LOG_LEVEL_1, LOG_ERROR_SYSTEM, L"Commands error", 0, nullptr, 0);
+					PrintError(LOG_LEVEL_TYPE::LEVEL_1, LOG_ERROR_TYPE::SYSTEM, L"Commands error", 0, nullptr, 0);
 					return false;
 				}
-				else {
-					if (!FileNameInit(Commands.c_str()))
-						return false;
-				}
+			#endif
+
+			//Mark path and file name.
+				if (!FileNameInit(Commands.c_str()))
+					return false;
 			}
 		}
 	//Print help messages.
@@ -167,7 +171,7 @@ bool ReadCommand(
 				#if defined(PLATFORM_WIN)
 					Flush_DNS_MailSlotSender(argv[2U]);
 				#elif (defined(PLATFORM_LINUX) || defined(PLATFORM_MACOS))
-					Flush_DNS_FIFO_Sender((const uint8_t *)argv[2U]);
+					Flush_DNS_FIFO_Sender(reinterpret_cast<const uint8_t *>(argv[2U]));
 				#endif
 				}
 			}
@@ -198,7 +202,7 @@ bool ReadCommand(
 			if (FileHandle != nullptr)
 			{
 			//Initialization and make keypair.
-				std::shared_ptr<uint8_t> Buffer(new uint8_t[DNSCRYPT_KEYPAIR_MESSAGE_LEN]());
+				std::unique_ptr<uint8_t> Buffer(new uint8_t[DNSCRYPT_KEYPAIR_MESSAGE_LEN]());
 				sodium_memzero(Buffer.get(), DNSCRYPT_KEYPAIR_MESSAGE_LEN);
 				DNSCURVE_HEAP_BUFFER_TABLE<uint8_t> SecretKey(crypto_box_SECRETKEYBYTES);
 				uint8_t PublicKey[crypto_box_PUBLICKEYBYTES]{0};
@@ -208,7 +212,7 @@ bool ReadCommand(
 				if (crypto_box_keypair(
 						PublicKey, 
 						SecretKey.Buffer) != 0 || 
-					sodium_bin2hex((char *)Buffer.get(), DNSCRYPT_KEYPAIR_MESSAGE_LEN, PublicKey, crypto_box_PUBLICKEYBYTES) == nullptr)
+					sodium_bin2hex(reinterpret_cast<char *>(Buffer.get()), DNSCRYPT_KEYPAIR_MESSAGE_LEN, PublicKey, crypto_box_PUBLICKEYBYTES) == nullptr)
 				{
 					fclose(FileHandle);
 					PrintToScreen(true, L"[System Error] Create ramdom key pair failed, please try again.\n");
@@ -217,10 +221,10 @@ bool ReadCommand(
 				}
 				CaseConvert(Buffer.get(), DNSCRYPT_KEYPAIR_MESSAGE_LEN, true);
 				fwprintf_s(FileHandle, L"Client Public Key = ");
-				for (InnerIndex = 0;InnerIndex < strnlen_s((const char *)Buffer.get(), DNSCRYPT_KEYPAIR_MESSAGE_LEN);++InnerIndex)
+				for (InnerIndex = 0;InnerIndex < strnlen_s(reinterpret_cast<const char *>(Buffer.get()), DNSCRYPT_KEYPAIR_MESSAGE_LEN);++InnerIndex)
 				{
 					if (InnerIndex > 0 && InnerIndex % DNSCRYPT_KEYPAIR_INTERVAL == 0 && 
-						InnerIndex + 1U < strnlen_s((const char *)Buffer.get(), DNSCRYPT_KEYPAIR_MESSAGE_LEN))
+						InnerIndex + 1U < strnlen_s(reinterpret_cast<const char *>(Buffer.get()), DNSCRYPT_KEYPAIR_MESSAGE_LEN))
 							fwprintf_s(FileHandle, L":");
 
 					fwprintf_s(FileHandle, L"%c", Buffer.get()[InnerIndex]);
@@ -229,7 +233,7 @@ bool ReadCommand(
 				fwprintf_s(FileHandle, L"\n");
 
 			//Write secret key.
-				if (sodium_bin2hex((char *)Buffer.get(), DNSCRYPT_KEYPAIR_MESSAGE_LEN, SecretKey.Buffer, crypto_box_SECRETKEYBYTES) == nullptr)
+				if (sodium_bin2hex(reinterpret_cast<char *>(Buffer.get()), DNSCRYPT_KEYPAIR_MESSAGE_LEN, SecretKey.Buffer, crypto_box_SECRETKEYBYTES) == nullptr)
 				{
 					fclose(FileHandle);
 					PrintToScreen(true, L"[System Error] Create ramdom key pair failed, please try again.\n");
@@ -238,10 +242,10 @@ bool ReadCommand(
 				}
 				CaseConvert(Buffer.get(), DNSCRYPT_KEYPAIR_MESSAGE_LEN, true);
 				fwprintf_s(FileHandle, L"Client Secret Key = ");
-				for (InnerIndex = 0;InnerIndex < strnlen_s((const char *)Buffer.get(), DNSCRYPT_KEYPAIR_MESSAGE_LEN);++InnerIndex)
+				for (InnerIndex = 0;InnerIndex < strnlen_s(reinterpret_cast<const char *>(Buffer.get()), DNSCRYPT_KEYPAIR_MESSAGE_LEN);++InnerIndex)
 				{
 					if (InnerIndex > 0 && InnerIndex % DNSCRYPT_KEYPAIR_INTERVAL == 0 && 
-						InnerIndex + 1U < strnlen_s((const char *)Buffer.get(), DNSCRYPT_KEYPAIR_MESSAGE_LEN))
+						InnerIndex + 1U < strnlen_s(reinterpret_cast<const char *>(Buffer.get()), DNSCRYPT_KEYPAIR_MESSAGE_LEN))
 							fwprintf_s(FileHandle, L":");
 
 					fwprintf_s(FileHandle, L"%c", Buffer.get()[InnerIndex]);
@@ -269,7 +273,7 @@ bool ReadCommand(
 
 			//LibSodium version
 			#if defined(ENABLE_LIBSODIUM)
-				if (MBS_To_WCS_String((const uint8_t *)sodium_version_string(), strlen(sodium_version_string()), LibVersion))
+				if (MBS_To_WCS_String(reinterpret_cast<const uint8_t *>(sodium_version_string()), strlen(sodium_version_string()), LibVersion))
 					PrintToScreen(true, L"LibSodium version %ls\n", LibVersion.c_str());
 				else 
 					PrintToScreen(true, L"[System Error] Convert multiple byte or wide char string error.\n");
@@ -277,7 +281,7 @@ bool ReadCommand(
 
 			//WinPcap or LibPcap version
 			#if defined(ENABLE_PCAP)
-				if (MBS_To_WCS_String((const uint8_t *)pcap_lib_version(), strlen(pcap_lib_version()), LibVersion))
+				if (MBS_To_WCS_String(reinterpret_cast<const uint8_t *>(pcap_lib_version()), strlen(pcap_lib_version()), LibVersion))
 					PrintToScreen(true, L"%ls\n", LibVersion.c_str());
 				else 
 					PrintToScreen(true, L"[System Error] Convert multiple byte or wide char string error.\n");
@@ -287,9 +291,9 @@ bool ReadCommand(
 			#if defined(ENABLE_TLS)
 				#if (defined(PLATFORM_LINUX) || defined(PLATFORM_MACOS))
 				#if OPENSSL_VERSION_NUMBER >= OPENSSL_VERSION_1_1_0 //OpenSSL version after 1.1.0
-					if (MBS_To_WCS_String((const uint8_t *)OpenSSL_version(OPENSSL_VERSION), strnlen(OpenSSL_version(OPENSSL_VERSION), OPENSSL_STATIC_BUFFER_SIZE), LibVersion))
+					if (MBS_To_WCS_String(reinterpret_cast<const uint8_t *>(OpenSSL_version(OPENSSL_VERSION)), strnlen(OpenSSL_version(OPENSSL_VERSION), OPENSSL_STATIC_BUFFER_SIZE), LibVersion))
 				#else //OpenSSL version before 1.1.0
-					if (MBS_To_WCS_String((const uint8_t *)SSLeay_version(SSLEAY_VERSION), strnlen(SSLeay_version(SSLEAY_VERSION), OPENSSL_STATIC_BUFFER_SIZE), LibVersion))
+					if (MBS_To_WCS_String(reinterpret_cast<const uint8_t *>(SSLeay_version(SSLEAY_VERSION)), strnlen(SSLeay_version(SSLEAY_VERSION), OPENSSL_STATIC_BUFFER_SIZE), LibVersion))
 				#endif
 						PrintToScreen(true, L"%ls\n", LibVersion.c_str());
 					else 
@@ -314,7 +318,7 @@ bool ReadCommand(
 		{
 			ssize_t ErrorCode = 0;
 			if (!FirewallTest(AF_INET6, ErrorCode) && !FirewallTest(AF_INET, ErrorCode))
-				PrintError(LOG_LEVEL_2, LOG_ERROR_NETWORK, L"Windows Firewall Test error", ErrorCode, nullptr, 0);
+				PrintError(LOG_LEVEL_TYPE::LEVEL_2, LOG_ERROR_TYPE::NETWORK, L"Windows Firewall Test error", ErrorCode, nullptr, 0);
 			else 
 				PrintToScreen(true, L"[Notice] Windows Firewall was tested successfully.\n");
 
@@ -327,7 +331,7 @@ bool ReadCommand(
 #if defined(PLATFORM_LINUX)
 	if (GlobalRunningStatus.IsDaemon && daemon(0, 0) == RETURN_ERROR)
 	{
-		PrintError(LOG_LEVEL_1, LOG_ERROR_SYSTEM, L"Set system daemon error", 0, nullptr, 0);
+		PrintError(LOG_LEVEL_TYPE::LEVEL_1, LOG_ERROR_TYPE::SYSTEM, L"Set system daemon error", 0, nullptr, 0);
 		return false;
 	}
 #endif
@@ -362,7 +366,7 @@ bool FileNameInit(
 	GlobalRunningStatus.MBS_Path_Global->push_back(OriginalPath);
 	GlobalRunningStatus.MBS_Path_Global->front().append("/");
 	std::wstring StringTemp;
-	if (!MBS_To_WCS_String((const uint8_t *)OriginalPath, PATH_MAX + 1U, StringTemp))
+	if (!MBS_To_WCS_String(reinterpret_cast<const uint8_t *>(OriginalPath), PATH_MAX + 1U, StringTemp))
 		return false;
 	StringTemp.append(L"/");
 	GlobalRunningStatus.Path_Global->clear();

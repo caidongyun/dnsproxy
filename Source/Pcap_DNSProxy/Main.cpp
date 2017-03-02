@@ -1,6 +1,6 @@
 ﻿// This code is part of Pcap_DNSProxy
 // A local DNS server based on WinPcap and LibPcap
-// Copyright (C) 2012-2016 Chengr28
+// Copyright (C) 2012-2017 Chengr28
 // 
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License
@@ -32,7 +32,7 @@ int main(
 {
 #endif
 //Get commands.
-	if (argc < 1)
+	if (argc < COMMAND_MIN_COUNT)
 	{
 		return EXIT_FAILURE;
 	}
@@ -51,7 +51,7 @@ int main(
 
 //Main process initialization
 #if defined(PLATFORM_WIN)
-	const SERVICE_TABLE_ENTRYW ServiceTable[]{{SYSTEM_SERVICE_NAME, (LPSERVICE_MAIN_FUNCTIONW)ServiceMain}, {nullptr, nullptr}}; //Service beginning
+	const SERVICE_TABLE_ENTRYW ServiceTable[]{{SYSTEM_SERVICE_NAME, reinterpret_cast<LPSERVICE_MAIN_FUNCTIONW>(ServiceMain)}, {nullptr, nullptr}}; //Service beginning
 	if (StartServiceCtrlDispatcherW(ServiceTable) == 0)
 	{
 	//Print to screen.
@@ -66,7 +66,7 @@ int main(
 		}
 		else {
 			std::wstring Message(L"[System Error] Service start error");
-			ErrorCodeToMessage(LOG_ERROR_SYSTEM, GetLastError(), Message);
+			ErrorCodeToMessage(LOG_ERROR_TYPE::SYSTEM, GetLastError(), Message);
 			Message.append(L".\n");
 			std::lock_guard<std::mutex> ScreenMutex(ScreenLock);
 			PrintToScreen(false, Message.c_str(), GetLastError());
@@ -76,10 +76,10 @@ int main(
 
 	//Handle the system signal.
 		if (SetConsoleCtrlHandler(
-				(PHANDLER_ROUTINE)CtrlHandler, 
+				reinterpret_cast<PHANDLER_ROUTINE>(CtrlHandler), 
 				TRUE) == 0)
 		{
-			PrintError(LOG_LEVEL_1, LOG_ERROR_SYSTEM, L"Set console control handler error", GetLastError(), nullptr, 0);
+			PrintError(LOG_LEVEL_TYPE::LEVEL_1, LOG_ERROR_TYPE::SYSTEM, L"Set console control handler error", GetLastError(), nullptr, 0);
 			return EXIT_FAILURE;
 		}
 
@@ -92,7 +92,7 @@ int main(
 	errno = 0;
 	if (signal(SIGPIPE, SIG_IGN) == SIG_ERR)
 	{
-		PrintError(LOG_LEVEL_1, LOG_ERROR_SYSTEM, L"Ignore system signal error", errno, nullptr, 0);
+		PrintError(LOG_LEVEL_TYPE::LEVEL_1, LOG_ERROR_TYPE::SYSTEM, L"Ignore system signal error", errno, nullptr, 0);
 		return EXIT_FAILURE;
 	}
 

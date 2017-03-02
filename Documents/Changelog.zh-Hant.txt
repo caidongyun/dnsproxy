@@ -1,15 +1,21 @@
-﻿Pcap_DNSProxy 0.4.8.1-0.4.8.3 更新日誌(2016-12-18)：
+﻿Pcap_DNSProxy 0.4.8.1-0.4.8.4 更新日誌(2017-03-02)：
 
 * 添加 Address Hosts 的首碼長度支援 [LGA1150]
 * 添加 Strict Resource Record TTL Filter 參數以支援 RFC 2181 標準所要求的資源記錄 TTL 檢查
+* 添加 EDNS Label 參數名單的排除模式支援 [燒香の貓咪]
 * 添加一組 Pcap Devices Blacklist 非必要抓包黑名單 (macOS)
 * 標準化 EDNS Client Subnet 的行為
+* 解除對 260 字元路徑/檔案名的內部邏輯限制，相關限制仍會受系統組態所影響 (Windows)
 * 改進的 Domain Case Conversion 功能
 * 改進在啟用手動版本選擇時所指定使用的 Ciphers Suites (Linux/macOS)
+* Output Protocol 改名為 Outgoing Protocol
 * 修改多行注釋區域的標籤要求 [Monoremonton/wx0]
+* 修改全部類型 DNS 緩存的緩存策略 [kraml]
 * 修復記憶體對齊可能造成的性能問題 [Syrone Wong]
 * 修復 Operation Mode 參數指定為 Proxy 和 Server 模式時工作不正常的問題 [Syrone Wong/wang20150419]
 * 修復預編譯二進位版本無法正確運行的錯誤 (macOS) [fysly]
+* 修復在部分情況下 DNS 緩存無法以超時形式移除的問題 [kraml]
+* 修復一個可能在部分編譯器造成嚴重記憶體洩漏的問題
 * 修復 IPv6 位址的 Local Routing 在指定部分首碼長度時可能出現的崩潰問題
 * 修復 IPv6 位址實際位址與首碼長度所指定的位址不一致的問題
 * 修復多行注釋區域無法通過其它非多行注釋區域標籤重置的問題
